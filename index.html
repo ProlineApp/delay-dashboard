@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Proline – Sync Delay Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -11,22 +12,18 @@ body{font-family:'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-heig
 header{background:#1a1d2e;border-bottom:1px solid #2d3148;padding:16px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 header h1{font-size:18px;font-weight:700;color:#fff}
 #status{font-size:12px;color:#64748b;margin-left:auto;display:flex;align-items:center;gap:8px}
-#status .dot{width:8px;height:8px;border-radius:50%;background:#64748b}
+#status .dot{width:8px;height:8px;border-radius:50%;background:#64748b;flex-shrink:0}
 #status.ok .dot{background:#10b981}
 #status.ok span{color:#10b981}
 #status.err .dot{background:#ef4444}
 #status.err span{color:#ef4444}
 #status.loading .dot{background:#f59e0b;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-#loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
-#loading-screen .spinner{width:40px;height:40px;border:3px solid #2d3148;border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:36px;height:36px;border:3px solid #2d3148;border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite}
+#loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
 #loading-screen p{color:#64748b;font-size:14px}
-#error-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:12px;text-align:center;padding:24px}
-#error-screen h2{color:#ef4444;font-size:18px}
-#error-screen p{color:#64748b;font-size:14px;max-width:480px}
-#error-screen button{background:#6366f1;border:none;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;margin-top:8px}
-#dashboard{display:none;padding:0 24px 40px}
+#main{display:none;padding:0 24px 40px}
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
 .kpi{background:#1a1d2e;border-radius:12px;padding:18px 20px;border:1px solid #2d3148}
 .kpi .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
@@ -44,8 +41,6 @@ header h1{font-size:18px;font-weight:700;color:#fff}
 .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center}
 .filters select{background:#1a1d2e;border:1px solid #2d3148;color:#e2e8f0;padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer}
 .filters label{font-size:12px;color:#64748b}
-.btn-refresh{background:#1e2040;border:1px solid #3d4270;color:#a78bfa;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
-.btn-refresh:hover{background:#2d3060}
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{background:#13152a;color:#64748b;font-weight:600;padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
@@ -66,32 +61,45 @@ tr:hover td{background:#1e2235}
 .tab.active{color:#a78bfa;border-bottom-color:#a78bfa}
 .tab-content{display:none}
 .tab-content.active{display:block}
-.file-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.chip{background:#13152a;border:1px solid #2d3148;border-radius:20px;padding:4px 12px;font-size:11px;color:#94a3b8}
-.chip.active-chip{border-color:#6366f1;color:#a78bfa;background:#1e2040}
+.upload-bar{background:#13152a;border:1px solid #2d3148;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+.upload-bar label{cursor:pointer;background:#6366f1;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;transition:background .2s}
+.upload-bar label:hover{background:#4f46e5}
+.upload-bar .info{font-size:12px;color:#64748b;flex:1}
+.upload-bar .info strong{color:#a78bfa}
+.btn{background:#1e2040;border:1px solid #3d4270;color:#a78bfa;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.btn:hover{background:#2d3060}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e2040;border:1px solid #3d4270;color:#e2e8f0;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;max-width:360px}
+.toast.show{opacity:1}
+.toast.ok{border-color:#10b981;color:#10b981}
+.toast.warn{border-color:#f59e0b;color:#f59e0b}
+.toast.err{border-color:#ef4444;color:#ef4444}
+.chip{display:inline-block;background:#13152a;border:1px solid #2d3148;border-radius:20px;padding:4px 12px;font-size:11px;color:#94a3b8;margin:3px}
 </style>
 </head>
 <body>
 <header>
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="2"/><path d="M12 6v6l4 2" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/></svg>
   <h1>Proline · Sync Delay Dashboard</h1>
-  <div id="status" class="loading"><div class="dot"></div><span>Carregando dados...</span></div>
-  <button class="btn-refresh" onclick="loadData()">↻ Atualizar</button>
+  <div id="status" class="loading"><div class="dot"></div><span>Carregando...</span></div>
+  <button class="btn" onclick="fetchData()">↻ Atualizar</button>
 </header>
 
 <div id="loading-screen">
   <div class="spinner"></div>
-  <p>Buscando arquivos da pasta do Drive...</p>
-  <p style="font-size:12px;color:#475569">Isso pode levar alguns segundos dependendo do volume de dados</p>
+  <p id="loading-msg">Buscando dados do banco...</p>
 </div>
 
-<div id="error-screen">
-  <h2>⚠️ Erro ao carregar dados</h2>
-  <p id="error-msg"></p>
-  <button onclick="loadData()">Tentar novamente</button>
-</div>
+<div id="main">
+  <!-- Upload bar -->
+  <div class="upload-bar">
+    <label>
+      ＋ Novo upload
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="handleUpload(this.files[0])"/>
+    </label>
+    <div class="info" id="upload-info">Faça upload de um <strong>.xlsx</strong> para adicionar dados ao banco. Arquivos já enviados são ignorados automaticamente.</div>
+    <div id="upload-spinner" style="display:none"><div class="spinner" style="width:24px;height:24px;border-width:2px"></div></div>
+  </div>
 
-<div id="dashboard">
   <div class="tabs">
     <div class="tab active" onclick="switchTab('analise')">📊 Análise</div>
     <div class="tab" onclick="switchTab('pareto')">📐 Pareto</div>
@@ -154,10 +162,8 @@ tr:hover td{background:#1e2235}
 
   <!-- HISTÓRICO -->
   <div class="tab-content" id="tab-historico">
-    <div style="margin-bottom:16px">
-      <div class="section-title" style="margin-top:0">Arquivos carregados da pasta</div>
-      <div class="file-chips" id="file-chips"></div>
-    </div>
+    <div class="section-title" style="margin-top:0">Arquivos no banco de dados</div>
+    <div id="file-chips" style="margin-bottom:24px"></div>
     <div class="charts-grid">
       <div class="card" style="grid-column:1/-1">
         <h3>📈 Evolução do Delay Médio e P95 por Arquivo</h3>
@@ -168,18 +174,25 @@ tr:hover td{background:#1e2235}
         <div class="chart-wrap"><canvas id="c-hist-vol"></canvas></div>
       </div>
       <div class="card">
-        <h3>⏱ Delay Médio por Data (CAPTURED_AT)</h3>
+        <h3>⏱ Delay Médio por Data</h3>
         <div class="chart-wrap"><canvas id="c-hist-date"></canvas></div>
       </div>
     </div>
   </div>
 </div>
 
-<script>
-const API = 'https://script.google.com/macros/s/AKfycbyzmZXhA1tDWcgOepx8-Aa8TivHTImHefDh-VGG5pOIJ4uFkXEFQVrdQZDeVwdk_bxQvA/exec';
-let allData = [], charts = {};
+<div class="toast" id="toast"></div>
 
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzz6pWHkLTMJ_ERIcRdkW7AdKdjEF5guWmMTusDLw1uRT6kHwm9jsi3m0458CbNS7Po/exec';
+let allData = [], charts = {};
 const C = ['#6366f1','#a78bfa','#818cf8','#c4b5fd','#4f46e5','#7c3aed','#8b5cf6','#ddd6fe','#60a5fa','#34d399'];
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 4000);
+}
 
 function setStatus(state, msg) {
   const s = document.getElementById('status');
@@ -197,53 +210,126 @@ function switchTab(t) {
   if(t==='historico') renderHistorico();
 }
 
-async function loadData() {
-  document.getElementById('loading-screen').style.display = 'flex';
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('error-screen').style.display = 'none';
-  setStatus('loading', 'Carregando dados...');
+// ── JSONP fetch ──────────────────────────────────────────
+function jsonpFetch(url) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      delete window[cb]; script.remove();
+      reject(new Error('Timeout ao conectar com o servidor.'));
+    }, 60000);
+    window[cb] = data => { clearTimeout(timer); delete window[cb]; script.remove(); resolve(data); };
+    script.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error('Falha ao conectar com o Apps Script.')); };
+    script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&t=' + Date.now();
+    document.head.appendChild(script);
+  });
+}
 
+// ── Carregar dados do Sheets ─────────────────────────────
+async function fetchData() {
+  setStatus('loading', 'Carregando...');
+  document.getElementById('loading-msg').textContent = 'Buscando dados do banco...';
   try {
-    const json = await new Promise((resolve, reject) => {
-      const cb = 'cb_' + Date.now();
-      const script = document.createElement('script');
-      const timer = setTimeout(() => {
-        delete window[cb];
-        script.remove();
-        reject(new Error('Timeout ao conectar com o Apps Script. Tente novamente.'));
-      }, 30000);
-      window[cb] = data => {
-        clearTimeout(timer);
-        delete window[cb];
-        script.remove();
-        resolve(data);
-      };
-      script.src = API + '?callback=' + cb + '&t=' + Date.now();
-      script.onerror = () => {
-        clearTimeout(timer);
-        delete window[cb];
-        reject(new Error('Erro ao carregar o script do Apps Script.'));
-      };
-      document.head.appendChild(script);
-    });
+    const json = await jsonpFetch(API);
+    if (!json.ok) throw new Error(json.error);
+    allData = (json.rows || []).map(r => ({
+      filename: String(r.filename||''),
+      date:     String(r.date||''),
+      event:    String(r.event||'').trim(),
+      android:  String(r.android||'').trim(),
+      appver:   String(r.appver||'').trim(),
+      nettype:  String(r.nettype||'').trim(),
+      netqual:  String(r.netqual||'').trim(),
+      battery:  parseFloat(r.battery)||0,
+      delay:    parseFloat(r.delay)||0,
+    })).filter(r => r.delay > 0);
 
-    if (!json.ok) throw new Error(json.error || 'Erro desconhecido no Apps Script');
-    if (!json.rows || !json.rows.length) throw new Error('Nenhum dado encontrado na pasta do Drive. Verifique se há arquivos .xlsx na pasta.');
-
-    allData = json.rows;
-    populateFilters();
     document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    setStatus('ok', `${allData.length.toLocaleString('pt-BR')} registros · ${[...new Set(allData.map(r=>r.filename))].length} arquivo(s)`);
+    document.getElementById('main').style.display = 'block';
+
+    if (!allData.length) {
+      setStatus('ok', 'Banco vazio — faça o primeiro upload');
+      document.getElementById('kpis').innerHTML = '<p style="color:#64748b;font-size:14px;padding:20px 0">Nenhum dado no banco ainda. Faça o upload de um arquivo .xlsx para começar.</p>';
+      return;
+    }
+
+    const files = [...new Set(allData.map(r=>r.filename))].length;
+    setStatus('ok', `${allData.length.toLocaleString('pt-BR')} registros · ${files} arquivo(s)`);
+    populateFilters();
     render();
   } catch(e) {
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('error-screen').style.display = 'flex';
-    document.getElementById('error-msg').textContent = e.message;
     setStatus('err', 'Erro ao carregar');
+    document.getElementById('loading-screen').innerHTML = `
+      <p style="color:#ef4444;font-size:16px;font-weight:600">⚠️ Erro ao carregar dados</p>
+      <p style="color:#64748b;font-size:13px;max-width:400px;text-align:center">${e.message}</p>
+      <button class="btn" style="margin-top:12px" onclick="location.reload()">Tentar novamente</button>`;
   }
 }
 
+// ── Upload e envio para Sheets ───────────────────────────
+async function handleUpload(file) {
+  if (!file) return;
+  const spin = document.getElementById('upload-spinner');
+  const info = document.getElementById('upload-info');
+  spin.style.display = 'block';
+  info.textContent = `Lendo ${file.name}...`;
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+      const rows = raw.map(row => ({
+        filename: file.name,
+        date:     String(row['CAPTURED_AT']||'').substring(0,10),
+        event:    String(row['EVENT']||'').trim(),
+        android:  String(row['USER_DEVICE_ANDROID_VERSION']||'').trim(),
+        appver:   String(row['APP_VERSION']||'').trim(),
+        nettype:  String(row['NETWORK_TYPE']||'').trim(),
+        netqual:  String(row['NETWORK_QUALITY']||'').trim(),
+        battery:  parseFloat(row['BATTERY_LEVEL'])||0,
+        delay:    parseFloat(row['DELAY_IN_SEC'])||0,
+      })).filter(r => r.delay > 0);
+
+      info.textContent = `Enviando ${rows.length.toLocaleString('pt-BR')} registros para o banco...`;
+
+      // envia em lotes de 1000 para não estourar limite do Apps Script
+      const BATCH = 1000;
+      let inserted = 0, skipped = false;
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const batch = rows.slice(i, i + BATCH);
+        const isFirst = i === 0;
+        const resp = await fetch(API, {
+          method: 'POST',
+          body: JSON.stringify({ filename: isFirst ? file.name : file.name + '_batch_' + i, rows: batch, isFirst })
+        });
+        const result = await resp.json();
+        if (result.skipped && isFirst) { skipped = true; break; }
+        if (result.ok) inserted += result.inserted || 0;
+      }
+
+      spin.style.display = 'none';
+      if (skipped) {
+        toast(`⚠️ "${file.name}" já foi enviado anteriormente — ignorado.`, 'warn');
+        info.textContent = 'Arquivo já existente no banco — ignorado.';
+      } else {
+        toast(`✓ ${inserted.toLocaleString('pt-BR')} registros adicionados ao banco!`, 'ok');
+        info.textContent = `✓ ${file.name} salvo. Atualizando dashboard...`;
+        await fetchData();
+      }
+    } catch(err) {
+      spin.style.display = 'none';
+      info.textContent = 'Erro no upload.';
+      toast('Erro: ' + err.message, 'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Filtros ──────────────────────────────────────────────
 function populateFilters() {
   const cfg = {event:'f-event',android:'f-android',appver:'f-appver',nettype:'f-nettype',netqual:'f-netqual',filename:'f-file'};
   const lbl = {event:'Todos os Eventos',android:'Todos os Android',appver:'Todas as Versões do App',nettype:'Todos os Tipos de Rede',netqual:'Todas as Qualidades de Rede',filename:'Todos os Arquivos'};
@@ -258,19 +344,13 @@ function filtered() {
   const fe=document.getElementById('f-event').value, fa=document.getElementById('f-android').value,
     fav=document.getElementById('f-appver').value, fnt=document.getElementById('f-nettype').value,
     fnq=document.getElementById('f-netqual').value, ff=document.getElementById('f-file').value;
-  return allData.filter(r=>
-    (!fe||r.event===fe)&&(!fa||r.android===fa)&&(!fav||r.appver===fav)&&
-    (!fnt||r.nettype===fnt)&&(!fnq||r.netqual===fnq)&&(!ff||r.filename===ff)
-  );
+  return allData.filter(r=>(!fe||r.event===fe)&&(!fa||r.android===fa)&&(!fav||r.appver===fav)&&(!fnt||r.nettype===fnt)&&(!fnq||r.netqual===fnq)&&(!ff||r.filename===ff));
 }
 
+// ── Helpers ──────────────────────────────────────────────
 function groupAvg(data, key) {
   const m = {};
-  data.forEach(r => {
-    const k = r[key]||'N/A';
-    if(!m[k]) m[k]={s:0,c:0};
-    m[k].s+=r.delay; m[k].c++;
-  });
+  data.forEach(r => { const k=r[key]||'N/A'; if(!m[k]) m[k]={s:0,c:0}; m[k].s+=r.delay; m[k].c++; });
   return Object.entries(m).map(([k,v])=>({k,avg:v.s/v.c,cnt:v.c,total:v.s})).sort((a,b)=>b.avg-a.avg);
 }
 
@@ -286,148 +366,34 @@ function badgeLevel(a) {
   return '<span class="badge low">Baixo</span>';
 }
 
-function barChart(id, labels, values) {
+function barChart(id, labels, values, fmtFn) {
   if(charts[id]) charts[id].destroy();
   const ctx = document.getElementById(id).getContext('2d');
-  charts[id] = new Chart(ctx, {
-    type:'bar',
-    data:{labels, datasets:[{data:values, backgroundColor:C, borderRadius:6, borderSkipped:false}]},
+  charts[id] = new Chart(ctx, {type:'bar', data:{labels, datasets:[{data:values, backgroundColor:C, borderRadius:6, borderSkipped:false}]},
     options:{responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:i=>fmtDelay(i.raw)}}},
-      scales:{
-        x:{ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#1e2235'}},
-        y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)}, grid:{color:'#1e2235'}}
-      }}
-  });
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:i=>(fmtFn||fmtDelay)(i.raw)}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2235'}}, y:{ticks:{color:'#64748b',callback:v=>(fmtFn||fmtDelay)(v)},grid:{color:'#1e2235'}}}}});
 }
 
 function lineChart(id, labels, datasets) {
   if(charts[id]) charts[id].destroy();
   const ctx = document.getElementById(id).getContext('2d');
-  charts[id] = new Chart(ctx, {
-    type:'line',
-    data:{labels, datasets},
+  charts[id] = new Chart(ctx, {type:'line', data:{labels, datasets},
     options:{responsive:true, maintainAspectRatio:false,
       plugins:{legend:{labels:{color:'#94a3b8'}}},
-      scales:{
-        x:{ticks:{color:'#64748b',font:{size:10},maxRotation:45}, grid:{color:'#1e2235'}},
-        y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)}, grid:{color:'#1e2235'}}
-      }}
-  });
+      scales:{x:{ticks:{color:'#64748b',font:{size:10},maxRotation:45},grid:{color:'#1e2235'}}, y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}});
 }
 
-function scatterChart(data) {
-  if(charts['c-battery']) charts['c-battery'].destroy();
-  const pts = data.map(r=>({x:r.battery,y:r.delay}));
-  const ctx = document.getElementById('c-battery').getContext('2d');
-  charts['c-battery'] = new Chart(ctx, {
-    type:'scatter',
-    data:{datasets:[{data:pts, backgroundColor:'rgba(99,102,241,0.4)', pointRadius:3}]},
-    options:{responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:i=>`Bateria:${i.raw.x}% · Delay:${fmtDelay(i.raw.y)}`}}},
-      scales:{
-        x:{title:{display:true,text:'Bateria (%)',color:'#64748b'}, ticks:{color:'#64748b'}, grid:{color:'#1e2235'}},
-        y:{title:{display:true,text:'Delay (s)',color:'#64748b'}, ticks:{color:'#64748b',callback:v=>fmtDelay(v)}, grid:{color:'#1e2235'}}
-      }}
-  });
-  if(pts.length>2) {
-    const n=pts.length, mx=pts.reduce((a,p)=>a+p.x,0)/n, my=pts.reduce((a,p)=>a+p.y,0)/n;
-    const num=pts.reduce((a,p)=>a+(p.x-mx)*(p.y-my),0);
-    const den=Math.sqrt(pts.reduce((a,p)=>a+(p.x-mx)**2,0)*pts.reduce((a,p)=>a+(p.y-my)**2,0));
-    const rr=den?num/den:0;
-    const interp=Math.abs(rr)<0.1?'sem correlação':Math.abs(rr)<0.3?'correlação fraca':Math.abs(rr)<0.6?'correlação moderada':'correlação forte';
-    document.getElementById('corr-battery').textContent=`Pearson r = ${rr.toFixed(3)} · ${interp} ${rr>0?'positiva':'negativa'}`;
-  }
-}
-
-function renderPareto() {
-  const dim=document.getElementById('pareto-dim').value;
-  const metric=document.getElementById('pareto-metric').value;
-  const data=filtered();
-  let sorted=groupAvg(data,dim);
-  if(metric==='total') sorted.sort((a,b)=>b.total-a.total);
-  else if(metric==='avg') sorted.sort((a,b)=>b.avg-a.avg);
-  else sorted.sort((a,b)=>b.cnt-a.cnt);
-  const vals=sorted.map(g=>metric==='total'?g.total:metric==='avg'?g.avg:g.cnt);
-  const totalVal=vals.reduce((a,b)=>a+b,0);
-  let cum=0;
-  const cumPct=vals.map(v=>{cum+=v;return parseFloat(((cum/totalVal)*100).toFixed(2))});
-  const n80=cumPct.findIndex(v=>v>=80)+1;
-  document.getElementById('pareto-info').textContent=
-    `🎯 ${n80} de ${sorted.length} categorias respondem por 80% do ${metric==='count'?'volume de eventos':'delay'}`;
-  if(charts['c-pareto']) charts['c-pareto'].destroy();
-  const ctx=document.getElementById('c-pareto').getContext('2d');
-  charts['c-pareto']=new Chart(ctx,{
-    data:{labels:sorted.map(g=>g.k), datasets:[
-      {type:'bar',label:metric==='count'?'Qtd':metric==='avg'?'Delay Médio':'Delay Total',
-        data:vals,backgroundColor:sorted.map((_,i)=>i<n80?'#6366f1':'#2d3148'),borderRadius:6,borderSkipped:false,yAxisID:'y'},
-      {type:'line',label:'% Acumulado',data:cumPct,borderColor:'#f59e0b',borderWidth:2,
-        pointRadius:3,fill:false,yAxisID:'y2',tension:0.3}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#94a3b8',font:{size:12}}},
-        tooltip:{callbacks:{label:i=>i.datasetIndex===0?(metric==='count'?`${i.raw} eventos`:fmtDelay(i.raw)):`${i.raw}%`}}},
-      scales:{
-        x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2235'}},
-        y:{ticks:{color:'#64748b',callback:v=>metric==='count'?v:fmtDelay(v)},grid:{color:'#1e2235'},position:'left'},
-        y2:{ticks:{color:'#f59e0b',callback:v=>v+'%'},grid:{display:false},position:'right',min:0,max:100}
-      }}
-  });
-}
-
-function renderHistorico() {
-  const files=[...new Set(allData.map(r=>r.filename))].sort();
-  // chips
-  document.getElementById('file-chips').innerHTML=files.map(f=>`<div class="chip active-chip">📄 ${f}</div>`).join('');
-
-  // delay médio e p95 por arquivo
-  const byFile=files.map(f=>{
-    const rows=allData.filter(r=>r.filename===f);
-    const d=rows.map(r=>r.delay).filter(x=>x>0).sort((a,b)=>a-b);
-    const avg=d.reduce((a,b)=>a+b,0)/d.length;
-    const p95=d[Math.floor(d.length*.95)];
-    return{f,avg,p95,cnt:rows.length};
-  });
-
-  lineChart('c-hist',
-    byFile.map(x=>x.f.replace(/\.xlsx?$/i,'')),
-    [
-      {label:'Delay Médio',data:byFile.map(x=>x.avg),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',borderWidth:2,pointRadius:4,fill:true,tension:0.3},
-      {label:'P95',data:byFile.map(x=>x.p95),borderColor:'#f59e0b',borderWidth:2,pointRadius:4,fill:false,tension:0.3,borderDash:[5,4]}
-    ]
-  );
-
-  // volume por arquivo
-  barChart('c-hist-vol', byFile.map(x=>x.f.replace(/\.xlsx?$/i,'')), byFile.map(x=>x.cnt));
-  if(charts['c-hist-vol']) {
-    charts['c-hist-vol'].options.scales.y.ticks.callback=v=>v.toLocaleString('pt-BR');
-    charts['c-hist-vol'].options.plugins.tooltip.callbacks.label=i=>`${i.raw.toLocaleString('pt-BR')} eventos`;
-    charts['c-hist-vol'].update();
-  }
-
-  // delay médio por data (CAPTURED_AT)
-  const byDate={};
-  allData.forEach(r=>{
-    if(!r.date) return;
-    if(!byDate[r.date]) byDate[r.date]={s:0,c:0};
-    byDate[r.date].s+=r.delay; byDate[r.date].c++;
-  });
-  const dates=Object.keys(byDate).sort();
-  lineChart('c-hist-date', dates, [{
-    label:'Delay Médio',data:dates.map(d=>byDate[d].s/byDate[d].c),
-    borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.1)',borderWidth:2,pointRadius:3,fill:true,tension:0.3
-  }]);
-}
-
+// ── Render principal ─────────────────────────────────────
 function render() {
-  const data=filtered();
+  const data = filtered();
   if(!data.length) return;
-  const delays=data.map(r=>r.delay).filter(d=>d>0);
-  const avg=delays.reduce((a,b)=>a+b,0)/delays.length;
-  const med=[...delays].sort((a,b)=>a-b)[Math.floor(delays.length/2)];
-  const p95=[...delays].sort((a,b)=>a-b)[Math.floor(delays.length*.95)];
-  const high=delays.filter(d=>d>120).length;
-  const files=[...new Set(data.map(r=>r.filename))].length;
+  const delays = data.map(r=>r.delay).filter(d=>d>0);
+  const avg = delays.reduce((a,b)=>a+b,0)/delays.length;
+  const med = [...delays].sort((a,b)=>a-b)[Math.floor(delays.length/2)];
+  const p95 = [...delays].sort((a,b)=>a-b)[Math.floor(delays.length*.95)];
+  const high = delays.filter(d=>d>120).length;
+  const files = [...new Set(data.map(r=>r.filename))].length;
 
   document.getElementById('kpis').innerHTML=`
     <div class="kpi"><div class="label">Total de Eventos</div><div class="value">${data.length.toLocaleString('pt-BR')}</div><div class="sub">${files} arquivo(s)</div></div>
@@ -436,28 +402,101 @@ function render() {
     <div class="kpi danger"><div class="label">Delay P95</div><div class="value">${fmtDelay(p95)}</div><div class="sub">95% abaixo disso</div></div>
     <div class="kpi danger"><div class="label">Eventos &gt;2min</div><div class="value">${high.toLocaleString('pt-BR')}</div><div class="sub">${((high/delays.length)*100).toFixed(1)}% do total</div></div>`;
 
-  ['event','android','appver','nettype','netqual'].forEach(k=>{
-    const g=groupAvg(data,k).slice(0,10);
+  ['event','android','appver','nettype','netqual'].forEach(k => {
+    const g = groupAvg(data,k).slice(0,10);
     barChart('c-'+k, g.map(x=>x.k), g.map(x=>x.avg));
   });
-  scatterChart(data);
 
-  const combos={};
-  data.forEach(r=>{
+  // scatter bateria
+  if(charts['c-battery']) charts['c-battery'].destroy();
+  const pts = data.map(r=>({x:r.battery,y:r.delay}));
+  const ctx = document.getElementById('c-battery').getContext('2d');
+  charts['c-battery'] = new Chart(ctx, {type:'scatter', data:{datasets:[{data:pts, backgroundColor:'rgba(99,102,241,0.4)', pointRadius:3}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:i=>`Bateria:${i.raw.x}% · Delay:${fmtDelay(i.raw.y)}`}}},
+      scales:{x:{title:{display:true,text:'Bateria (%)',color:'#64748b'},ticks:{color:'#64748b'},grid:{color:'#1e2235'}},
+        y:{title:{display:true,text:'Delay (s)',color:'#64748b'},ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}});
+  if(pts.length>2) {
+    const n=pts.length, mx=pts.reduce((a,p)=>a+p.x,0)/n, my=pts.reduce((a,p)=>a+p.y,0)/n;
+    const num=pts.reduce((a,p)=>a+(p.x-mx)*(p.y-my),0);
+    const den=Math.sqrt(pts.reduce((a,p)=>a+(p.x-mx)**2,0)*pts.reduce((a,p)=>a+(p.y-my)**2,0));
+    const rr=den?num/den:0;
+    const interp=Math.abs(rr)<0.1?'sem correlação':Math.abs(rr)<0.3?'correlação fraca':Math.abs(rr)<0.6?'correlação moderada':'correlação forte';
+    document.getElementById('corr-battery').textContent=`Pearson r = ${rr.toFixed(3)} · ${interp} ${rr>0?'positiva':'negativa'}`;
+  }
+
+  // top combos
+  const combos = {};
+  data.forEach(r => {
     const k=`${r.event}||${r.android}||${r.appver}||${r.nettype}||${r.netqual}`;
     if(!combos[k]) combos[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,s:0,c:0};
     combos[k].s+=r.delay; combos[k].c++;
   });
-  const top=Object.values(combos).sort((a,b)=>(b.s/b.c)-(a.s/a.c)).slice(0,15);
-  const maxA=top[0]?top[0].s/top[0].c:1;
-  document.getElementById('top-tbody').innerHTML=top.map((c,i)=>{
+  const top = Object.values(combos).sort((a,b)=>(b.s/b.c)-(a.s/a.c)).slice(0,15);
+  const maxA = top[0]?top[0].s/top[0].c:1;
+  document.getElementById('top-tbody').innerHTML = top.map((c,i)=>{
     const a=c.s/c.c;
     return`<tr><td>${i+1}</td><td>${c.event||'-'}</td><td>${c.android||'-'}</td><td>${c.appver||'-'}</td><td>${c.nettype||'-'}</td><td>${c.netqual||'-'}</td><td>${c.c}</td><td><strong>${fmtDelay(a)}</strong></td><td>${badgeLevel(a)}</td><td style="min-width:100px"><div class="progress-bar"><div style="width:${Math.round((a/maxA)*100)}%"></div></div></td></tr>`;
   }).join('');
 }
 
-// init
-loadData();
+// ── Pareto ───────────────────────────────────────────────
+function renderPareto() {
+  const dim=document.getElementById('pareto-dim').value;
+  const metric=document.getElementById('pareto-metric').value;
+  let sorted=groupAvg(filtered(),dim);
+  if(metric==='total') sorted.sort((a,b)=>b.total-a.total);
+  else if(metric==='avg') sorted.sort((a,b)=>b.avg-a.avg);
+  else sorted.sort((a,b)=>b.cnt-a.cnt);
+  const vals=sorted.map(g=>metric==='total'?g.total:metric==='avg'?g.avg:g.cnt);
+  const tot=vals.reduce((a,b)=>a+b,0);
+  let cum=0;
+  const cumPct=vals.map(v=>{cum+=v;return parseFloat(((cum/tot)*100).toFixed(2))});
+  const n80=cumPct.findIndex(v=>v>=80)+1;
+  document.getElementById('pareto-info').textContent=`🎯 ${n80} de ${sorted.length} categorias respondem por 80% do ${metric==='count'?'volume de eventos':'delay'}`;
+  if(charts['c-pareto']) charts['c-pareto'].destroy();
+  const ctx=document.getElementById('c-pareto').getContext('2d');
+  charts['c-pareto']=new Chart(ctx,{
+    data:{labels:sorted.map(g=>g.k), datasets:[
+      {type:'bar',label:metric==='count'?'Qtd':metric==='avg'?'Delay Médio':'Delay Total',data:vals,backgroundColor:sorted.map((_,i)=>i<n80?'#6366f1':'#2d3148'),borderRadius:6,borderSkipped:false,yAxisID:'y'},
+      {type:'line',label:'% Acumulado',data:cumPct,borderColor:'#f59e0b',borderWidth:2,pointRadius:3,fill:false,yAxisID:'y2',tension:0.3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:12}}},tooltip:{callbacks:{label:i=>i.datasetIndex===0?(metric==='count'?`${i.raw} eventos`:fmtDelay(i.raw)):`${i.raw}%`}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2235'}},
+        y:{ticks:{color:'#64748b',callback:v=>metric==='count'?v:fmtDelay(v)},grid:{color:'#1e2235'},position:'left'},
+        y2:{ticks:{color:'#f59e0b',callback:v=>v+'%'},grid:{display:false},position:'right',min:0,max:100}}}});
+}
+
+// ── Histórico ────────────────────────────────────────────
+function renderHistorico() {
+  const files=[...new Set(allData.map(r=>r.filename))].sort();
+  document.getElementById('file-chips').innerHTML=files.map(f=>`<span class="chip">📄 ${f}</span>`).join('');
+
+  const byFile=files.map(f=>{
+    const rows=allData.filter(r=>r.filename===f);
+    const d=[...rows.map(r=>r.delay)].filter(x=>x>0).sort((a,b)=>a-b);
+    return{f,avg:d.reduce((a,b)=>a+b,0)/d.length,p95:d[Math.floor(d.length*.95)],cnt:rows.length};
+  });
+
+  lineChart('c-hist', byFile.map(x=>x.f.replace(/\.xlsx?$/i,'')), [
+    {label:'Delay Médio',data:byFile.map(x=>x.avg),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',borderWidth:2,pointRadius:4,fill:true,tension:0.3},
+    {label:'P95',data:byFile.map(x=>x.p95),borderColor:'#f59e0b',borderWidth:2,pointRadius:4,fill:false,tension:0.3,borderDash:[5,4]}
+  ]);
+
+  barChart('c-hist-vol', byFile.map(x=>x.f.replace(/\.xlsx?$/i,'')), byFile.map(x=>x.cnt), v=>v.toLocaleString('pt-BR'));
+
+  const byDate={};
+  allData.forEach(r=>{if(!r.date)return;if(!byDate[r.date]){byDate[r.date]={s:0,c:0}}byDate[r.date].s+=r.delay;byDate[r.date].c++});
+  const dates=Object.keys(byDate).sort();
+  lineChart('c-hist-date', dates, [{label:'Delay Médio',data:dates.map(d=>byDate[d].s/byDate[d].c),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.1)',borderWidth:2,pointRadius:3,fill:true,tension:0.3}]);
+}
+
+// init — tenta carregar dados; se banco vazio mostra tela principal mesmo assim
+(async () => {
+  try { await fetchData(); } catch(e) {}
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+})();
 </script>
 </body>
 </html>
