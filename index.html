@@ -176,7 +176,7 @@ tr:hover td{background:#1e2235}
 </div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbxk1b0FSdzcc1KfDOfn7mVGdvmLuwrXDSRnJ9JU7zH92j3PC9lkE42kGjwpsZ3iEIkIEg/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyzmZXhA1tDWcgOepx8-Aa8TivHTImHefDh-VGG5pOIJ4uFkXEFQVrdQZDeVwdk_bxQvA/exec';
 let allData = [], charts = {};
 
 const C = ['#6366f1','#a78bfa','#818cf8','#c4b5fd','#4f46e5','#7c3aed','#8b5cf6','#ddd6fe','#60a5fa','#34d399'];
@@ -204,8 +204,28 @@ async function loadData() {
   setStatus('loading', 'Carregando dados...');
 
   try {
-    const r = await fetch(API + '?t=' + Date.now());
-    const json = await r.json();
+    const json = await new Promise((resolve, reject) => {
+      const cb = 'cb_' + Date.now();
+      const script = document.createElement('script');
+      const timer = setTimeout(() => {
+        delete window[cb];
+        script.remove();
+        reject(new Error('Timeout ao conectar com o Apps Script. Tente novamente.'));
+      }, 30000);
+      window[cb] = data => {
+        clearTimeout(timer);
+        delete window[cb];
+        script.remove();
+        resolve(data);
+      };
+      script.src = API + '?callback=' + cb + '&t=' + Date.now();
+      script.onerror = () => {
+        clearTimeout(timer);
+        delete window[cb];
+        reject(new Error('Erro ao carregar o script do Apps Script.'));
+      };
+      document.head.appendChild(script);
+    });
 
     if (!json.ok) throw new Error(json.error || 'Erro desconhecido no Apps Script');
     if (!json.rows || !json.rows.length) throw new Error('Nenhum dado encontrado na pasta do Drive. Verifique se há arquivos .xlsx na pasta.');
