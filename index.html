@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Proline – Sync Delay Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
+header{background:#1a1d2e;border-bottom:1px solid #2d3148;padding:16px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:700;color:#fff}
+#upload-zone{margin:32px auto;max-width:500px;border:2px dashed #3d4270;border-radius:16px;padding:40px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#1a1d2e}
+#upload-zone:hover,#upload-zone.drag{border-color:#6366f1;background:#1e2040}
+#upload-zone p{color:#94a3b8;font-size:14px}
+#upload-zone strong{color:#6366f1}
+#dashboard{display:none;padding:0 24px 40px}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:#1a1d2e;border-radius:12px;padding:18px 20px;border:1px solid #2d3148}
+.kpi .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi .value{font-size:26px;font-weight:700;color:#fff}
+.kpi .sub{font-size:11px;color:#64748b;margin-top:4px}
+.kpi.warn .value{color:#f59e0b}
+.kpi.danger .value{color:#ef4444}
+.section-title{font-size:13px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin:28px 0 14px}
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px}
+.card{background:#1a1d2e;border-radius:12px;padding:20px;border:1px solid #2d3148}
+.card h3{font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:16px}
+.chart-wrap{position:relative;height:240px}
+.chart-wrap-tall{position:relative;height:320px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center}
+.filters select{background:#1a1d2e;border:1px solid #2d3148;color:#e2e8f0;padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+.filters label{font-size:12px;color:#64748b}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#13152a;color:#64748b;font-weight:600;padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:8px 12px;border-top:1px solid #1e2235;color:#cbd5e1}
+tr:hover td{background:#1e2235}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.high{background:#3f1d1d;color:#ef4444}
+.badge.med{background:#3f3010;color:#f59e0b}
+.badge.low{background:#0f2d20;color:#10b981}
+.progress-bar{background:#2d3148;border-radius:4px;height:8px;overflow:hidden}
+.progress-bar div{height:100%;background:linear-gradient(90deg,#6366f1,#a78bfa);border-radius:4px}
+#file-info{font-size:12px;color:#10b981;margin-left:auto}
+.scatter-info{font-size:11px;color:#64748b;margin-top:8px}
+.pareto-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.pareto-controls label{font-size:12px;color:#64748b}
+.pareto-controls select{background:#13152a;border:1px solid #2d3148;color:#e2e8f0;padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+.hist-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto}
+.hist-item{display:flex;align-items:center;justify-content:space-between;background:#13152a;border-radius:8px;padding:8px 12px;font-size:12px;gap:8px}
+.hist-item .hi-date{color:#475569;font-size:11px}
+.hi-val{color:#a78bfa;font-weight:700}
+.hi-cnt{color:#475569;font-size:11px}
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid #2d3148}
+.tab{padding:10px 18px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:#a78bfa;border-bottom-color:#a78bfa}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e2040;border:1px solid #3d4270;color:#e2e8f0;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.ok{border-color:#10b981;color:#10b981}
+.toast.err{border-color:#ef4444;color:#ef4444}
+</style>
+</head>
+<body>
+<header>
+  <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="2"/><path d="M12 6v6l4 2" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/></svg>
+  <h1>Proline · Sync Delay Dashboard</h1>
+  <span id="file-info">Nenhum arquivo carregado</span>
+  <label style="cursor:pointer;background:#1e2040;border:1px solid #3d4270;padding:7px 14px;border-radius:8px;font-size:12px;color:#a78bfa;font-weight:600">
+    ＋ Carregar arquivo
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="loadFile(this.files[0])"/>
+  </label>
+</header>
+
+<div id="upload-zone" ondragover="ev(event)" ondragleave="el(event)" ondrop="ed(event)" onclick="document.getElementById('fileInput').click()">
+  <svg width="48" height="48" fill="none" viewBox="0 0 24 24" style="margin-bottom:12px;opacity:.6"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <p style="font-size:16px;font-weight:600;color:#e2e8f0;margin-bottom:6px">Arraste seu arquivo aqui</p>
+  <p>ou clique para selecionar o <strong>.xlsx</strong> atualizado</p>
+  <p style="margin-top:8px;font-size:12px;color:#475569">Histórico salvo no Google Sheets</p>
+</div>
+
+<div id="dashboard">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('analise')">📊 Análise</div>
+    <div class="tab" onclick="switchTab('pareto')">📐 Pareto</div>
+    <div class="tab" onclick="switchTab('historico')">📈 Histórico</div>
+  </div>
+
+  <!-- ANÁLISE -->
+  <div class="tab-content active" id="tab-analise">
+    <div class="filters">
+      <label>Filtrar:</label>
+      <select id="f-event" onchange="render()"><option value="">Todos os Eventos</option></select>
+      <select id="f-appver" onchange="render()"><option value="">Todas as Versões do App</option></select>
+      <select id="f-nettype" onchange="render()"><option value="">Todos os Tipos de Rede</option></select>
+      <select id="f-netqual" onchange="render()"><option value="">Todas as Qualidades de Rede</option></select>
+      <select id="f-android" onchange="render()"><option value="">Todos os Android</option></select>
+    </div>
+    <div class="kpi-row" id="kpis"></div>
+    <div class="section-title">Delay por Categoria</div>
+    <div class="charts-grid">
+      <div class="card"><h3>📱 Por Tipo de Evento</h3><div class="chart-wrap"><canvas id="c-event"></canvas></div></div>
+      <div class="card"><h3>🤖 Por Versão do Android</h3><div class="chart-wrap"><canvas id="c-android"></canvas></div></div>
+      <div class="card"><h3>📦 Por Versão do App</h3><div class="chart-wrap"><canvas id="c-appver"></canvas></div></div>
+      <div class="card"><h3>📡 Por Tipo de Rede</h3><div class="chart-wrap"><canvas id="c-nettype"></canvas></div></div>
+      <div class="card"><h3>📶 Por Qualidade de Rede</h3><div class="chart-wrap"><canvas id="c-netqual"></canvas></div></div>
+      <div class="card"><h3>🔋 Delay vs Bateria</h3><div class="chart-wrap"><canvas id="c-battery"></canvas></div><p class="scatter-info" id="corr-battery"></p></div>
+    </div>
+    <div class="section-title">Top Combinações com Maior Delay</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table><thead><tr><th>#</th><th>Evento</th><th>Android</th><th>App Ver.</th><th>Rede</th><th>Qualidade</th><th>Qtd</th><th>Delay Médio</th><th>Nível</th><th>Barra</th></tr></thead>
+        <tbody id="top-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARETO -->
+  <div class="tab-content" id="tab-pareto">
+    <div class="card">
+      <div class="pareto-controls">
+        <label>Dimensão:</label>
+        <select id="pareto-dim" onchange="renderPareto()">
+          <option value="event">Tipo de Evento</option>
+          <option value="android">Versão do Android</option>
+          <option value="appver">Versão do App</option>
+          <option value="nettype">Tipo de Rede</option>
+          <option value="netqual">Qualidade de Rede</option>
+        </select>
+        <label>Métrica:</label>
+        <select id="pareto-metric" onchange="renderPareto()">
+          <option value="total">Delay Total Acumulado</option>
+          <option value="avg">Delay Médio</option>
+          <option value="count">Volume de Eventos</option>
+        </select>
+      </div>
+      <div id="pareto-info" style="font-size:12px;color:#a78bfa;margin-bottom:12px;min-height:18px"></div>
+      <div class="chart-wrap-tall"><canvas id="c-pareto"></canvas></div>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="tab-content" id="tab-historico">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <div class="card">
+        <h3>📈 Evolução do Delay Médio por Upload</h3>
+        <div class="chart-wrap-tall"><canvas id="c-hist"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>🗂 Uploads Registrados <span id="hist-loading" style="font-size:11px;color:#475569;font-weight:400"></span></h3>
+        <div class="hist-list" id="hist-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GS_URL='https://script.google.com/macros/s/AKfycbzd_tRApmg5Jv-5yaLekDrsKwzr9U8FojTBSqJQc_8StSoXJSrXIRAQpR4vjy1bcCvZ/exec';
+let allData=[], charts={};
+
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+
+function ev(e){e.preventDefault();document.getElementById('upload-zone').classList.add('drag')}
+function el(e){document.getElementById('upload-zone').classList.remove('drag')}
+function ed(e){e.preventDefault();el(e);if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])}
+
+function switchTab(t){
+  const ids=['analise','pareto','historico'];
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    el.classList.toggle('active',ids[i]===t);
+    document.getElementById('tab-'+ids[i]).classList.toggle('active',ids[i]===t);
+  });
+  if(t==='pareto')renderPareto();
+  if(t==='historico')loadAndRenderHistory();
+}
+
+async function saveSnapshot(snap){
+  try{
+    await fetch(GS_URL,{method:'POST',body:JSON.stringify(snap)});
+    toast('✓ Snapshot salvo no Google Sheets');
+  }catch(e){
+    toast('Erro ao salvar no Sheets — verifique a URL do Apps Script','err');
+  }
+}
+
+async function loadAndRenderHistory(){
+  const el=document.getElementById('hist-loading');
+  const list=document.getElementById('hist-list');
+  el.textContent='carregando...';
+  list.innerHTML='<p style="color:#475569;font-size:13px;padding:12px">Buscando dados...</p>';
+  try{
+    const r=await fetch(GS_URL+'?t='+Date.now());
+    const data=await r.json();
+    el.textContent=`(${data.length} registros)`;
+    if(!data.length){list.innerHTML='<p style="color:#475569;font-size:13px;padding:12px">Nenhum upload registrado ainda.</p>';return;}
+    const sorted=[...data].sort((a,b)=>a.timestamp-b.timestamp);
+    list.innerHTML=sorted.slice().reverse().map(h=>`
+      <div class="hist-item">
+        <div style="flex:1;min-width:0">
+          <div style="color:#cbd5e1;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.filename}</div>
+          <div class="hi-date">${h.date} · ${Number(h.count).toLocaleString('pt-BR')} registros</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <div class="hi-val">${fmtDelay(Number(h.avgDelay))} médio</div>
+          <div class="hi-cnt">P95: ${fmtDelay(Number(h.p95Delay))}</div>
+        </div>
+      </div>`).join('');
+    if(charts['c-hist'])charts['c-hist'].destroy();
+    const ctx=document.getElementById('c-hist').getContext('2d');
+    charts['c-hist']=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:sorted.map(h=>h.date),
+        datasets:[
+          {label:'Delay Médio',data:sorted.map(h=>Number(h.avgDelay)),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',borderWidth:2,pointRadius:4,fill:true,tension:0.3},
+          {label:'P95',data:sorted.map(h=>Number(h.p95Delay)),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.05)',borderWidth:2,pointRadius:4,fill:false,tension:0.3,borderDash:[5,4]}
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#94a3b8'}}},
+        scales:{
+          x:{ticks:{color:'#64748b',font:{size:10},maxRotation:45},grid:{color:'#1e2235'}},
+          y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}
+        }
+      }
+    });
+  }catch(e){
+    el.textContent='';
+    list.innerHTML='<p style="color:#ef4444;font-size:13px;padding:12px">Erro ao carregar histórico. Verifique a URL do Apps Script.</p>';
+  }
+}
+
+async function loadFile(file){
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=async e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{defval:''});
+    allData=raw.map(row=>({
+      event:String(row['EVENT']||'').trim(),
+      android:String(row['USER_DEVICE_ANDROID_VERSION']||'').trim(),
+      appver:String(row['APP_VERSION']||'').trim(),
+      nettype:String(row['NETWORK_TYPE']||'').trim(),
+      netqual:String(row['NETWORK_QUALITY']||'').trim(),
+      battery:parseFloat(row['BATTERY_LEVEL'])||0,
+      delay:parseFloat(row['DELAY_IN_SEC'])||0,
+    })).filter(r=>r.delay>0||r.event);
+
+    const delays=allData.map(r=>r.delay).filter(d=>d>0);
+    const avg=delays.reduce((a,b)=>a+b,0)/delays.length;
+    const p95=[...delays].sort((a,b)=>a-b)[Math.floor(delays.length*.95)];
+
+    // salva snapshot no Sheets
+    await saveSnapshot({
+      timestamp:Date.now(),
+      filename:file.name,
+      date:new Date().toLocaleString('pt-BR'),
+      count:allData.length,
+      avgDelay:parseFloat(avg.toFixed(2)),
+      p95Delay:parseFloat(p95.toFixed(2))
+    });
+
+    document.getElementById('file-info').textContent=`✓ ${file.name} · ${allData.length.toLocaleString('pt-BR')} registros`;
+    populateFilters();
+    document.getElementById('upload-zone').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    render();
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function populateFilters(){
+  const cfg={event:'f-event',android:'f-android',appver:'f-appver',nettype:'f-nettype',netqual:'f-netqual'};
+  const lbl={event:'Todos os Eventos',android:'Todos os Android',appver:'Todas as Versões do App',nettype:'Todos os Tipos de Rede',netqual:'Todas as Qualidades de Rede'};
+  for(const[k,id] of Object.entries(cfg)){
+    const s=document.getElementById(id);
+    const v=[...new Set(allData.map(r=>r[k]).filter(Boolean))].sort();
+    s.innerHTML=`<option value="">${lbl[k]}</option>`+v.map(x=>`<option value="${x}">${x}</option>`).join('');
+  }
+}
+
+function filtered(){
+  const fe=document.getElementById('f-event').value,fa=document.getElementById('f-android').value,
+    fav=document.getElementById('f-appver').value,fnt=document.getElementById('f-nettype').value,
+    fnq=document.getElementById('f-netqual').value;
+  return allData.filter(r=>(!fe||r.event===fe)&&(!fa||r.android===fa)&&(!fav||r.appver===fav)&&(!fnt||r.nettype===fnt)&&(!fnq||r.netqual===fnq));
+}
+
+function groupAvg(data,key){
+  const m={};
+  data.forEach(r=>{const k=r[key]||'N/A';if(!m[k]){m[k]={s:0,c:0}}m[k].s+=r.delay;m[k].c++});
+  return Object.entries(m).map(([k,v])=>({k,avg:v.s/v.c,cnt:v.c,total:v.s})).sort((a,b)=>b.avg-a.avg);
+}
+
+function fmtDelay(s){
+  if(!s||isNaN(s))return'—';
+  if(s<60)return s.toFixed(1)+'s';
+  return Math.floor(s/60)+'m'+Math.round(s%60)+'s';
+}
+
+function badgeLevel(a){
+  if(a>120)return'<span class="badge high">Alto</span>';
+  if(a>30)return'<span class="badge med">Médio</span>';
+  return'<span class="badge low">Baixo</span>';
+}
+
+const C=['#6366f1','#a78bfa','#818cf8','#c4b5fd','#4f46e5','#7c3aed','#8b5cf6','#ddd6fe','#60a5fa','#34d399'];
+
+function barChart(id,labels,values){
+  if(charts[id])charts[id].destroy();
+  const ctx=document.getElementById(id).getContext('2d');
+  charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:C,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>fmtDelay(i.raw)}}},
+      scales:{x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}});
+}
+
+function scatterChart(data){
+  if(charts['c-battery'])charts['c-battery'].destroy();
+  const pts=data.map(r=>({x:r.battery,y:r.delay}));
+  const ctx=document.getElementById('c-battery').getContext('2d');
+  charts['c-battery']=new Chart(ctx,{type:'scatter',data:{datasets:[{data:pts,backgroundColor:'rgba(99,102,241,0.4)',pointRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`Bateria:${i.raw.x}% · Delay:${fmtDelay(i.raw.y)}`}}},
+      scales:{x:{title:{display:true,text:'Bateria (%)',color:'#64748b'},ticks:{color:'#64748b'},grid:{color:'#1e2235'}},
+        y:{title:{display:true,text:'Delay (s)',color:'#64748b'},ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}});
+  if(pts.length>2){
+    const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
+    const num=pts.reduce((a,p)=>a+(p.x-mx)*(p.y-my),0);
+    const den=Math.sqrt(pts.reduce((a,p)=>a+(p.x-mx)**2,0)*pts.reduce((a,p)=>a+(p.y-my)**2,0));
+    const rr=den?num/den:0;
+    const i=Math.abs(rr)<0.1?'sem correlação':Math.abs(rr)<0.3?'correlação fraca':Math.abs(rr)<0.6?'correlação moderada':'correlação forte';
+    document.getElementById('corr-battery').textContent=`Pearson r = ${rr.toFixed(3)} · ${i} ${rr>0?'positiva':'negativa'}`;
+  }
+}
+
+function renderPareto(){
+  const dim=document.getElementById('pareto-dim').value;
+  const metric=document.getElementById('pareto-metric').value;
+  const data=filtered();
+  let sorted=groupAvg(data,dim);
+  if(metric==='total')sorted.sort((a,b)=>b.total-a.total);
+  else if(metric==='avg')sorted.sort((a,b)=>b.avg-a.avg);
+  else sorted.sort((a,b)=>b.cnt-a.cnt);
+  const vals=sorted.map(g=>metric==='total'?g.total:metric==='avg'?g.avg:g.cnt);
+  const totalVal=vals.reduce((a,b)=>a+b,0);
+  let cum=0;
+  const cumPct=vals.map(v=>{cum+=v;return parseFloat(((cum/totalVal)*100).toFixed(2))});
+  const cutIdx=cumPct.findIndex(v=>v>=80);
+  const n80=cutIdx+1;
+  document.getElementById('pareto-info').textContent=`🎯 ${n80} de ${sorted.length} categorias respondem por 80% do ${metric==='count'?'volume de eventos':'delay'}`;
+  if(charts['c-pareto'])charts['c-pareto'].destroy();
+  const ctx=document.getElementById('c-pareto').getContext('2d');
+  charts['c-pareto']=new Chart(ctx,{
+    data:{labels:sorted.map(g=>g.k),datasets:[
+      {type:'bar',label:metric==='count'?'Qtd':metric==='avg'?'Delay Médio':'Delay Total',data:vals,backgroundColor:sorted.map((_,i)=>i<n80?'#6366f1':'#2d3148'),borderRadius:6,borderSkipped:false,yAxisID:'y'},
+      {type:'line',label:'% Acumulado',data:cumPct,borderColor:'#f59e0b',borderWidth:2,pointRadius:3,fill:false,yAxisID:'y2',tension:0.3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:12}}},tooltip:{callbacks:{label:i=>i.datasetIndex===0?(metric==='count'?`${i.raw} eventos`:fmtDelay(i.raw)):`${i.raw}%`}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2235'}},
+        y:{ticks:{color:'#64748b',callback:v=>metric==='count'?v:fmtDelay(v)},grid:{color:'#1e2235'},position:'left'},
+        y2:{ticks:{color:'#f59e0b',callback:v=>v+'%'},grid:{display:false},position:'right',min:0,max:100}
+      }}
+  });
+}
+
+function render(){
+  const data=filtered();
+  if(!data.length)return;
+  const delays=data.map(r=>r.delay).filter(d=>d>0);
+  const avg=delays.reduce((a,b)=>a+b,0)/delays.length;
+  const med=[...delays].sort((a,b)=>a-b)[Math.floor(delays.length/2)];
+  const p95=[...delays].sort((a,b)=>a-b)[Math.floor(delays.length*.95)];
+  const high=delays.filter(d=>d>120).length;
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="label">Total de Eventos</div><div class="value">${data.length.toLocaleString('pt-BR')}</div></div>
+    <div class="kpi warn"><div class="label">Delay Médio</div><div class="value">${fmtDelay(avg)}</div></div>
+    <div class="kpi"><div class="label">Delay Mediano</div><div class="value">${fmtDelay(med)}</div></div>
+    <div class="kpi danger"><div class="label">Delay P95</div><div class="value">${fmtDelay(p95)}</div><div class="sub">95% abaixo disso</div></div>
+    <div class="kpi danger"><div class="label">Eventos &gt;2min</div><div class="value">${high.toLocaleString('pt-BR')}</div><div class="sub">${((high/delays.length)*100).toFixed(1)}% do total</div></div>`;
+  ['event','android','appver','nettype','netqual'].forEach(k=>{
+    const g=groupAvg(data,k).slice(0,10);
+    barChart('c-'+k,g.map(x=>x.k),g.map(x=>x.avg));
+  });
+  scatterChart(data);
+  const combos={};
+  data.forEach(r=>{
+    const k=`${r.event}||${r.android}||${r.appver}||${r.nettype}||${r.netqual}`;
+    if(!combos[k]){combos[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,s:0,c:0}}
+    combos[k].s+=r.delay;combos[k].c++;
+  });
+  const top=Object.values(combos).sort((a,b)=>(b.s/b.c)-(a.s/a.c)).slice(0,15);
+  const maxA=top[0]?top[0].s/top[0].c:1;
+  document.getElementById('top-tbody').innerHTML=top.map((c,i)=>{
+    const a=c.s/c.c;
+    return`<tr><td>${i+1}</td><td>${c.event||'-'}</td><td>${c.android||'-'}</td><td>${c.appver||'-'}</td><td>${c.nettype||'-'}</td><td>${c.netqual||'-'}</td><td>${c.c}</td><td><strong>${fmtDelay(a)}</strong></td><td>${badgeLevel(a)}</td><td style="min-width:100px"><div class="progress-bar"><div style="width:${Math.round((a/maxA)*100)}%"></div></div></td></tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
