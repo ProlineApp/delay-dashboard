@@ -223,9 +223,11 @@ async function init(){
       showUploadZone();
     }
   } catch(e) {
-    // erro de conexão — mostra tela de upload
     document.getElementById('file-info').textContent = 'Nenhum arquivo carregado';
     showUploadZone();
+    // mostra erro visível na tela
+    document.getElementById('uz-title').textContent = '⚠️ Erro ao buscar histórico';
+    document.getElementById('uz-sub').textContent = e.message;
   }
 }
 
