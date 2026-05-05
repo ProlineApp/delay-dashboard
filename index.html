@@ -367,9 +367,12 @@ function filtered(){
   return allData.filter(r=>(!fe||r.event===fe)&&(!fa||r.android===fa)&&(!fav||r.appver===fav)&&(!fnt||r.nettype===fnt)&&(!fnq||r.netqual===fnq));
 }
 
+const DISCARD=['n/a','unknown','undefined','null',''];
+function isValid(v){return!DISCARD.includes(String(v).toLowerCase().trim())}
+
 function groupAvg(data,key){
   const m={};
-  data.forEach(r=>{const k=r[key]||'N/A';if(!m[k]){m[k]={s:0,c:0}}m[k].s+=r.delay;m[k].c++});
+  data.filter(r=>isValid(r[key])).forEach(r=>{const k=r[key];if(!m[k]){m[k]={s:0,c:0}}m[k].s+=r.delay;m[k].c++});
   return Object.entries(m).map(([k,v])=>({k,avg:v.s/v.c,cnt:v.c,total:v.s})).sort((a,b)=>b.avg-a.avg);
 }
 
