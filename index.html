@@ -86,13 +86,12 @@ tr:hover td{background:#1e2235}
 
 <div id="dashboard">
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('analise')">📊 Análise</div>
-    <div class="tab" onclick="switchTab('pareto')">📐 Pareto</div>
-    <div class="tab" onclick="switchTab('historico')">📈 Histórico</div>
+    <div class="tab" id="tab-btn-analise" onclick="switchTab('analise')">📊 Análise</div>
+    <div class="tab" id="tab-btn-pareto" onclick="switchTab('pareto')">📐 Pareto</div>
+    <div class="tab" id="tab-btn-historico" onclick="switchTab('historico')">📈 Histórico</div>
   </div>
 
-  <!-- ANÁLISE -->
-  <div class="tab-content active" id="tab-analise">
+  <div class="tab-content" id="tab-analise">
     <div class="filters">
       <label>Filtrar:</label>
       <select id="f-event" onchange="render()"><option value="">Todos os Eventos</option></select>
@@ -120,7 +119,6 @@ tr:hover td{background:#1e2235}
     </div>
   </div>
 
-  <!-- PARETO -->
   <div class="tab-content" id="tab-pareto">
     <div class="card">
       <div class="pareto-controls">
@@ -144,7 +142,6 @@ tr:hover td{background:#1e2235}
     </div>
   </div>
 
-  <!-- HISTÓRICO -->
   <div class="tab-content" id="tab-historico">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
       <div class="card">
@@ -167,15 +164,14 @@ tr:hover td{background:#1e2235}
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycby-1OZmPqgxFO4Fcjv_JH1xr7zfl-4NDuu_zeBQhCke-yCcnR1J9vmM4ZulIeieGDWo/exec';
-let allData = [], charts = {}, cachedDB = null;
-const C = ['#6366f1','#a78bfa','#818cf8','#c4b5fd','#4f46e5','#7c3aed','#8b5cf6','#ddd6fe','#60a5fa','#34d399'];
-const DISCARD = ['n/a','unknown','undefined','null',''];
-
-function isValid(v){ return !DISCARD.includes(String(v).toLowerCase().trim()); }
+let allData=[], charts={}, cachedDB=null;
+const C=['#6366f1','#a78bfa','#818cf8','#c4b5fd','#4f46e5','#7c3aed','#8b5cf6','#ddd6fe','#60a5fa','#34d399'];
+const DISCARD=['n/a','unknown','undefined','null',''];
+function isValid(v){return !DISCARD.includes(String(v).toLowerCase().trim())}
 
 function toast(msg,type='ok'){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast show '+type;
+  t.textContent=msg;t.className='toast show '+type;
   setTimeout(()=>t.className='toast',4000);
 }
 
@@ -184,68 +180,61 @@ function el(e){document.getElementById('upload-zone').classList.remove('drag')}
 function ed(e){e.preventDefault();el(e);if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])}
 
 function switchTab(t){
-  const ids=['analise','pareto','historico'];
-  document.querySelectorAll('.tab').forEach((el,i)=>{
-    el.classList.toggle('active',ids[i]===t);
-    document.getElementById('tab-'+ids[i]).classList.toggle('active',ids[i]===t);
+  ['analise','pareto','historico'].forEach(id=>{
+    document.getElementById('tab-btn-'+id).classList.toggle('active',id===t);
+    document.getElementById('tab-'+id).classList.toggle('active',id===t);
   });
   if(t==='pareto') renderPareto();
   if(t==='historico') renderHistory();
 }
 
-function jsonpFetch(url){
-  return fetch(url)
-    .then(r=>r.json())
-    .then(data=>{
-      if(!data.ok) throw new Error(data.error||'Erro desconhecido');
-      return data;
-    });
+function apiFetch(url){
+  return fetch(url).then(r=>r.json()).then(data=>{
+    if(!data.ok) throw new Error(data.error||'Erro desconhecido');
+    return data;
+  });
 }
 
-// ── INIT — ao abrir a página busca histórico ─────────────
+// ── INIT ─────────────────────────────────────────────────
 async function init(){
-  try {
-    const json = await jsonpFetch(API);
-    if(!json.ok) throw new Error(json.error);
-    cachedDB = json.data || {};
-    const resumo = cachedDB.resumo || [];
+  try{
+    const json=await apiFetch(API+'?t='+Date.now());
+    cachedDB=json.data||{};
+    const resumo=cachedDB.resumo||[];
     if(resumo.length){
-      // tem histórico — mostra dashboard direto
-      const last = resumo[resumo.length-1];
-      document.getElementById('file-info').textContent = `✓ ${last.filename} · ${Number(last.total_eventos).toLocaleString('pt-BR')} registros`;
-      document.getElementById('upload-zone').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
+      const last=resumo[resumo.length-1];
+      document.getElementById('file-info').textContent=`✓ ${last.filename} · ${Number(last.total_eventos).toLocaleString('pt-BR')} registros`;
+      document.getElementById('upload-zone').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      // abre direto na aba histórico
+      switchTab('historico');
     } else {
-      // banco vazio — mostra tela de upload
       showUploadZone();
     }
-  } catch(e) {
-    document.getElementById('file-info').textContent = 'Nenhum arquivo carregado';
+  } catch(e){
+    document.getElementById('file-info').textContent='Nenhum arquivo carregado';
     showUploadZone();
-    // mostra erro visível na tela
-    document.getElementById('uz-title').textContent = '⚠️ Erro ao buscar histórico';
-    document.getElementById('uz-sub').textContent = e.message;
   }
 }
 
 function showUploadZone(){
-  const uz = document.getElementById('upload-zone');
+  const uz=document.getElementById('upload-zone');
   uz.classList.add('clickable');
-  uz.onclick = ()=>document.getElementById('fileInput').click();
-  uz.ondragover = ev; uz.ondragleave = el; uz.ondrop = ed;
-  document.getElementById('uz-title').textContent = 'Arraste seu arquivo aqui';
-  document.getElementById('uz-sub').innerHTML = 'ou clique para selecionar o <strong>.xlsx</strong>';
+  uz.onclick=()=>document.getElementById('fileInput').click();
+  uz.ondragover=ev; uz.ondragleave=el; uz.ondrop=ed;
+  document.getElementById('uz-title').textContent='Arraste seu arquivo aqui';
+  document.getElementById('uz-sub').innerHTML='ou clique para selecionar o <strong>.xlsx</strong>';
 }
 
 // ── LOAD FILE ────────────────────────────────────────────
 function loadFile(file){
   if(!file) return;
-  const r = new FileReader();
-  r.onload = async e => {
-    const wb = XLSX.read(e.target.result,{type:'array'});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const raw = XLSX.utils.sheet_to_json(ws,{defval:''});
-    allData = raw.map(row=>({
+  const r=new FileReader();
+  r.onload=async e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{defval:''});
+    allData=raw.map(row=>({
       event:   String(row['EVENT']||'').trim(),
       android: String(row['USER_DEVICE_ANDROID_VERSION']||'').trim(),
       appver:  String(row['APP_VERSION']||'').trim(),
@@ -255,10 +244,11 @@ function loadFile(file){
       delay:   parseFloat(row['DELAY_IN_SEC'])||0,
     })).filter(r=>r.delay>0||r.event);
 
-    document.getElementById('file-info').textContent = `✓ ${file.name} · ${allData.length.toLocaleString('pt-BR')} registros`;
+    document.getElementById('file-info').textContent=`✓ ${file.name} · ${allData.length.toLocaleString('pt-BR')} registros`;
     populateFilters();
-    document.getElementById('upload-zone').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('upload-zone').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    switchTab('analise');
     render();
     await saveAggregates(file.name);
   };
@@ -267,11 +257,11 @@ function loadFile(file){
 
 // ── SALVAR AGREGADOS ─────────────────────────────────────
 async function saveAggregates(filename){
-  try {
-    const delays = allData.map(r=>r.delay).filter(d=>d>0).sort((a,b)=>a-b);
-    const avg = d => d.length ? d.reduce((a,b)=>a+b,0)/d.length : 0;
-    const p95 = d => d.length ? d[Math.floor(d.length*.95)] : 0;
-    const med = d => d.length ? d[Math.floor(d.length/2)] : 0;
+  try{
+    const delays=allData.map(r=>r.delay).filter(d=>d>0).sort((a,b)=>a-b);
+    const avg=d=>d.length?d.reduce((a,b)=>a+b,0)/d.length:0;
+    const p95=d=>d.length?d[Math.floor(d.length*.95)]:0;
+    const med=d=>d.length?d[Math.floor(d.length/2)]:0;
 
     function groupAgg(key){
       const m={};
@@ -289,7 +279,7 @@ async function saveAggregates(filename){
       if(!redeMap[k]) redeMap[k]={nettype:r.nettype,netqual:r.netqual,d:[]};
       redeMap[k].d.push(r.delay);
     });
-    const por_rede = Object.values(redeMap).map(x=>({nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),p95:parseFloat(p95(x.d).toFixed(2)),cnt:x.d.length}));
+    const por_rede=Object.values(redeMap).map(x=>({nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),p95:parseFloat(p95(x.d).toFixed(2)),cnt:x.d.length}));
 
     const comboMap={};
     allData.forEach(r=>{
@@ -297,13 +287,13 @@ async function saveAggregates(filename){
       if(!comboMap[k]) comboMap[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,d:[]};
       comboMap[k].d.push(r.delay);
     });
-    const top_combos = Object.values(comboMap).map(x=>({event:x.event,android:x.android,appver:x.appver,nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),cnt:x.d.length})).sort((a,b)=>b.avg-a.avg).slice(0,20);
+    const top_combos=Object.values(comboMap).map(x=>({event:x.event,android:x.android,appver:x.appver,nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),cnt:x.d.length})).sort((a,b)=>b.avg-a.avg).slice(0,20);
 
-    const payload = {
+    const payload={
       upload_id: filename,
       filename,
       date_upload: new Date().toLocaleDateString('pt-BR'),
-      resumo: {total:allData.length, avg:parseFloat(avg(delays).toFixed(2)), p95:parseFloat(p95(delays).toFixed(2)), median:parseFloat(med(delays).toFixed(2)), pct_criticos:parseFloat((delays.filter(d=>d>120).length/delays.length*100).toFixed(2))},
+      resumo:{total:allData.length,avg:parseFloat(avg(delays).toFixed(2)),p95:parseFloat(p95(delays).toFixed(2)),median:parseFloat(med(delays).toFixed(2)),pct_criticos:parseFloat((delays.filter(d=>d>120).length/delays.length*100).toFixed(2))},
       por_evento:  groupAgg('event'),
       por_android: groupAgg('android'),
       por_appver:  groupAgg('appver'),
@@ -311,35 +301,37 @@ async function saveAggregates(filename){
       top_combos
     };
 
-    const resp = await fetch(API,{method:'POST',body:JSON.stringify(payload)});
-    const result = await resp.json();
-    if(result.skipped) toast(`⚠️ "${filename}" já estava no histórico — ignorado`,'warn');
-    else if(result.ok){
+    const resp=await fetch(API,{method:'POST',body:JSON.stringify(payload)});
+    const result=await resp.json();
+    if(result.skipped){
+      toast(`⚠️ "${filename}" já estava no histórico — ignorado`,'warn');
+    } else if(result.ok){
       toast('✓ Agregados salvos no histórico');
-      cachedDB = null; // força reload do histórico na próxima vez que abrir a aba
+      cachedDB=null; // força reload
+      renderHistory(); // atualiza histórico em tempo real
+    } else {
+      toast('Erro ao salvar: '+(result.error||''),'err');
     }
-    else toast('Erro ao salvar: '+(result.error||''),'err');
-  } catch(e) {
+  } catch(e){
     toast('Erro ao salvar histórico: '+e.message,'err');
   }
 }
 
 // ── HISTÓRICO ────────────────────────────────────────────
 async function renderHistory(){
-  document.getElementById('hist-loading').textContent = 'carregando...';
-  document.getElementById('hist-list').innerHTML = '<p style="color:#475569;font-size:13px;padding:12px">Buscando...</p>';
-  try {
-    let db = cachedDB;
+  document.getElementById('hist-loading').textContent='carregando...';
+  document.getElementById('hist-list').innerHTML='<p style="color:#475569;font-size:13px;padding:12px">Buscando...</p>';
+  try{
+    let db=cachedDB;
     if(!db){
-      const json = await jsonpFetch(API);
-      if(!json.ok) throw new Error(json.error);
-      db = json.data || {};
+      const json=await apiFetch(API+'?t='+Date.now());
+      db=json.data||{};
     }
-    cachedDB = null; // limpa cache após usar
-    const resumo = (db.resumo||[]).sort((a,b)=>String(a.upload_id).localeCompare(String(b.upload_id)));
-    document.getElementById('hist-loading').textContent = `(${resumo.length} uploads)`;
+    cachedDB=null;
+    const resumo=(db.resumo||[]).sort((a,b)=>String(a.upload_id).localeCompare(String(b.upload_id)));
+    document.getElementById('hist-loading').textContent=`(${resumo.length} uploads)`;
 
-    document.getElementById('hist-list').innerHTML = resumo.slice().reverse().map(h=>`
+    document.getElementById('hist-list').innerHTML=resumo.slice().reverse().map(h=>`
       <div class="hist-item">
         <div style="flex:1;min-width:0">
           <div style="color:#cbd5e1;font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.filename}</div>
@@ -351,10 +343,10 @@ async function renderHistory(){
         </div>
       </div>`).join('');
 
-    const labels = resumo.map(r=>r.filename.replace(/\.xlsx?$/i,''));
+    const labels=resumo.map(r=>r.filename.replace(/\.xlsx?$/i,''));
 
     if(charts['c-hist']) charts['c-hist'].destroy();
-    charts['c-hist'] = new Chart(document.getElementById('c-hist').getContext('2d'),{
+    charts['c-hist']=new Chart(document.getElementById('c-hist').getContext('2d'),{
       type:'line',
       data:{labels,datasets:[
         {label:'Delay Médio',data:resumo.map(r=>Number(r.avg_delay)),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',borderWidth:2,pointRadius:4,fill:true,tension:0.3},
@@ -364,17 +356,17 @@ async function renderHistory(){
     });
 
     if(charts['c-hist-vol']) charts['c-hist-vol'].destroy();
-    charts['c-hist-vol'] = new Chart(document.getElementById('c-hist-vol').getContext('2d'),{
+    charts['c-hist-vol']=new Chart(document.getElementById('c-hist-vol').getContext('2d'),{
       type:'bar',
       data:{labels,datasets:[{data:resumo.map(r=>Number(r.total_eventos)),backgroundColor:C,borderRadius:6,borderSkipped:false}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${i.raw.toLocaleString('pt-BR')} eventos`}}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>v.toLocaleString('pt-BR')},grid:{color:'#1e2235'}}}}
     });
 
-    const evRows = db.por_evento || [];
-    const eventos = [...new Set(evRows.map(r=>r.event))].slice(0,8);
-    const lineC = ['#6366f1','#10b981','#f59e0b','#f87171','#a78bfa','#60a5fa','#34d399','#c4b5fd'];
+    const evRows=db.por_evento||[];
+    const eventos=[...new Set(evRows.map(r=>r.event))].slice(0,8);
+    const lineC=['#6366f1','#10b981','#f59e0b','#f87171','#a78bfa','#60a5fa','#34d399','#c4b5fd'];
     if(charts['c-hist-event']) charts['c-hist-event'].destroy();
-    charts['c-hist-event'] = new Chart(document.getElementById('c-hist-event').getContext('2d'),{
+    charts['c-hist-event']=new Chart(document.getElementById('c-hist-event').getContext('2d'),{
       type:'line',
       data:{labels,datasets:eventos.map((ev,i)=>({
         label:ev,
@@ -384,8 +376,8 @@ async function renderHistory(){
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}
     });
 
-  } catch(e) {
-    document.getElementById('hist-list').innerHTML = `<p style="color:#ef4444;font-size:13px;padding:12px">Erro: ${e.message}</p>`;
+  } catch(e){
+    document.getElementById('hist-list').innerHTML=`<p style="color:#ef4444;font-size:13px;padding:12px">Erro: ${e.message}</p>`;
   }
 }
 
@@ -401,8 +393,8 @@ function populateFilters(){
 }
 
 function filtered(){
-  const fe=document.getElementById('f-event').value, fa=document.getElementById('f-android').value,
-    fav=document.getElementById('f-appver').value, fnt=document.getElementById('f-nettype').value,
+  const fe=document.getElementById('f-event').value,fa=document.getElementById('f-android').value,
+    fav=document.getElementById('f-appver').value,fnt=document.getElementById('f-nettype').value,
     fnq=document.getElementById('f-netqual').value;
   return allData.filter(r=>(!fe||r.event===fe)&&(!fa||r.android===fa)&&(!fav||r.appver===fav)&&(!fnt||r.nettype===fnt)&&(!fnq||r.netqual===fnq));
 }
@@ -513,7 +505,6 @@ function renderPareto(){
         y2:{ticks:{color:'#f59e0b',callback:v=>v+'%'},grid:{display:false},position:'right',min:0,max:100}}}});
 }
 
-// init
 init();
 </script>
 </body>
