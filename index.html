@@ -199,7 +199,7 @@ function jsonpFetch(url){
     const sc=document.createElement('script');
     const timer=setTimeout(()=>{delete window[cb];sc.remove();reject(new Error('Timeout'))},60000);
     window[cb]=data=>{clearTimeout(timer);delete window[cb];sc.remove();resolve(data)};
-    sc.onerror=()=>{clearTimeout(timer);delete window[cb];reject(new Error('Falha ao conectar'))};
+    // não usa onerror pois Apps Script redireciona e dispara onerror erroneamente
     sc.src=url+'?callback='+cb+'&t='+Date.now();
     document.head.appendChild(sc);
   });
