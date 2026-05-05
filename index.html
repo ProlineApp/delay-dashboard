@@ -12,11 +12,11 @@ body{font-family:'Segoe UI',sans-serif;background:#0f1117;color:#e2e8f0;min-heig
 header{background:#1a1d2e;border-bottom:1px solid #2d3148;padding:16px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 header h1{font-size:18px;font-weight:700;color:#fff}
 header span{font-size:12px;color:#64748b;margin-left:auto}
-#upload-zone{margin:32px auto;max-width:500px;border:2px dashed #3d4270;border-radius:16px;padding:40px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#1a1d2e}
-#upload-zone:hover,#upload-zone.drag{border-color:#6366f1;background:#1e2040}
+#upload-zone{margin:32px auto;max-width:500px;border:2px dashed #3d4270;border-radius:16px;padding:40px 24px;text-align:center;transition:all .2s;background:#1a1d2e}
+#upload-zone.clickable{cursor:pointer}
+#upload-zone.clickable:hover,#upload-zone.drag{border-color:#6366f1;background:#1e2040}
 #upload-zone p{color:#94a3b8;font-size:14px}
 #upload-zone strong{color:#6366f1}
-#upload-zone input{display:none}
 #dashboard{display:none;padding:0 24px 40px}
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
 .kpi{background:#1a1d2e;border-radius:12px;padding:18px 20px;border:1px solid #2d3148}
@@ -25,7 +25,6 @@ header span{font-size:12px;color:#64748b;margin-left:auto}
 .kpi .sub{font-size:11px;color:#64748b;margin-top:4px}
 .kpi.warn .value{color:#f59e0b}
 .kpi.danger .value{color:#ef4444}
-.kpi.ok .value{color:#10b981}
 .section-title{font-size:13px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin:28px 0 14px}
 .charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px}
 .card{background:#1a1d2e;border-radius:12px;padding:20px;border:1px solid #2d3148}
@@ -35,7 +34,7 @@ header span{font-size:12px;color:#64748b;margin-left:auto}
 .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center}
 .filters select{background:#1a1d2e;border:1px solid #2d3148;color:#e2e8f0;padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer}
 .filters label{font-size:12px;color:#64748b}
-.table-wrap{overflow-x:auto;margin-top:8px}
+.table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{background:#13152a;color:#64748b;font-weight:600;padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
 td{padding:8px 12px;border-top:1px solid #1e2235;color:#cbd5e1}
@@ -72,25 +71,24 @@ tr:hover td{background:#1e2235}
 <header>
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#6366f1" stroke-width="2"/><path d="M12 6v6l4 2" stroke="#6366f1" stroke-width="2" stroke-linecap="round"/></svg>
   <h1>Proline · Sync Delay Dashboard</h1>
-  <span id="file-info">Nenhum arquivo carregado</span>
-  <label style="cursor:pointer;background:#1e2040;border:1px solid #3d4270;padding:7px 14px;border-radius:8px;font-size:12px;color:#a78bfa;font-weight:600" onclick="document.getElementById('fileInput').click()">
+  <span id="file-info">Carregando...</span>
+  <label style="cursor:pointer;background:#1e2040;border:1px solid #3d4270;padding:7px 14px;border-radius:8px;font-size:12px;color:#a78bfa;font-weight:600">
     ＋ Carregar arquivo
     <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="loadFile(this.files[0])"/>
   </label>
 </header>
 
-<div id="upload-zone" ondragover="ev(event)" ondragleave="el(event)" ondrop="ed(event)" onclick="document.getElementById('fileInput').click()">
+<div id="upload-zone">
   <svg width="48" height="48" fill="none" viewBox="0 0 24 24" style="margin-bottom:12px;opacity:.6"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  <p style="font-size:16px;font-weight:600;color:#e2e8f0;margin-bottom:6px">Arraste seu arquivo aqui</p>
-  <p>ou clique para selecionar o <strong>.xlsx</strong> atualizado</p>
-  <p style="margin-top:8px;font-size:12px;color:#475569">Histórico salvo automaticamente no Google Sheets</p>
+  <p style="font-size:16px;font-weight:600;color:#e2e8f0;margin-bottom:6px" id="uz-title">Buscando dados do histórico...</p>
+  <p id="uz-sub">Aguarde um momento</p>
 </div>
 
 <div id="dashboard">
   <div class="tabs">
     <div class="tab active" onclick="switchTab('analise')">📊 Análise</div>
     <div class="tab" onclick="switchTab('pareto')">📐 Pareto</div>
-    <div class="tab" onclick="switchTab('historico')" id="tab-btn-hist">📈 Histórico</div>
+    <div class="tab" onclick="switchTab('historico')">📈 Histórico</div>
   </div>
 
   <!-- ANÁLISE -->
@@ -169,10 +167,18 @@ tr:hover td{background:#1e2235}
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbw0WVBha1yaIkJ1SZ50NK79Bta8PRv8AnRLS_f--zDC9KZlCnjfkOuHoalyg4GOtCUe/exec';
-let allData = [], charts = {};
+let allData = [], charts = {}, cachedDB = null;
 const C = ['#6366f1','#a78bfa','#818cf8','#c4b5fd','#4f46e5','#7c3aed','#8b5cf6','#ddd6fe','#60a5fa','#34d399'];
+const DISCARD = ['n/a','unknown','undefined','null',''];
 
-function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.className='toast',4000)}
+function isValid(v){ return !DISCARD.includes(String(v).toLowerCase().trim()); }
+
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',4000);
+}
+
 function ev(e){e.preventDefault();document.getElementById('upload-zone').classList.add('drag')}
 function el(e){document.getElementById('upload-zone').classList.remove('drag')}
 function ed(e){e.preventDefault();el(e);if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])}
@@ -183,11 +189,10 @@ function switchTab(t){
     el.classList.toggle('active',ids[i]===t);
     document.getElementById('tab-'+ids[i]).classList.toggle('active',ids[i]===t);
   });
-  if(t==='pareto')renderPareto();
-  if(t==='historico')loadAndRenderHistory();
+  if(t==='pareto') renderPareto();
+  if(t==='historico') renderHistory();
 }
 
-// ── JSONP ────────────────────────────────────────────────
 function jsonpFetch(url){
   return new Promise((resolve,reject)=>{
     const cb='cb_'+Date.now();
@@ -200,103 +205,139 @@ function jsonpFetch(url){
   });
 }
 
-// ── LOAD FILE (igual v1) ─────────────────────────────────
+// ── INIT — ao abrir a página busca histórico ─────────────
+async function init(){
+  try {
+    const json = await jsonpFetch(API);
+    if(!json.ok) throw new Error(json.error);
+    cachedDB = json.data || {};
+    const resumo = cachedDB.resumo || [];
+    if(resumo.length){
+      // tem histórico — mostra dashboard direto
+      const last = resumo[resumo.length-1];
+      document.getElementById('file-info').textContent = `✓ ${last.filename} · ${Number(last.total_eventos).toLocaleString('pt-BR')} registros`;
+      document.getElementById('upload-zone').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    } else {
+      // banco vazio — mostra tela de upload
+      showUploadZone();
+    }
+  } catch(e) {
+    // erro de conexão — mostra tela de upload
+    document.getElementById('file-info').textContent = 'Nenhum arquivo carregado';
+    showUploadZone();
+  }
+}
+
+function showUploadZone(){
+  const uz = document.getElementById('upload-zone');
+  uz.classList.add('clickable');
+  uz.onclick = ()=>document.getElementById('fileInput').click();
+  uz.ondragover = ev; uz.ondragleave = el; uz.ondrop = ed;
+  document.getElementById('uz-title').textContent = 'Arraste seu arquivo aqui';
+  document.getElementById('uz-sub').innerHTML = 'ou clique para selecionar o <strong>.xlsx</strong>';
+}
+
+// ── LOAD FILE ────────────────────────────────────────────
 function loadFile(file){
-  if(!file)return;
-  const r=new FileReader();
-  r.onload=async e=>{
-    const wb=XLSX.read(e.target.result,{type:'array'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const raw=XLSX.utils.sheet_to_json(ws,{defval:''});
-    allData=raw.map(row=>({
-      event:String(row['EVENT']||'').trim(),
-      android:String(row['USER_DEVICE_ANDROID_VERSION']||'').trim(),
-      appver:String(row['APP_VERSION']||'').trim(),
-      nettype:String(row['NETWORK_TYPE']||'').trim(),
-      netqual:String(row['NETWORK_QUALITY']||'').trim(),
-      battery:parseFloat(row['BATTERY_LEVEL'])||0,
-      delay:parseFloat(row['DELAY_IN_SEC'])||0,
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = async e => {
+    const wb = XLSX.read(e.target.result,{type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws,{defval:''});
+    allData = raw.map(row=>({
+      event:   String(row['EVENT']||'').trim(),
+      android: String(row['USER_DEVICE_ANDROID_VERSION']||'').trim(),
+      appver:  String(row['APP_VERSION']||'').trim(),
+      nettype: String(row['NETWORK_TYPE']||'').trim(),
+      netqual: String(row['NETWORK_QUALITY']||'').trim(),
+      battery: parseFloat(row['BATTERY_LEVEL'])||0,
+      delay:   parseFloat(row['DELAY_IN_SEC'])||0,
     })).filter(r=>r.delay>0||r.event);
 
-    document.getElementById('file-info').textContent=`✓ ${file.name} · ${allData.length.toLocaleString('pt-BR')} registros`;
+    document.getElementById('file-info').textContent = `✓ ${file.name} · ${allData.length.toLocaleString('pt-BR')} registros`;
     populateFilters();
-    document.getElementById('upload-zone').style.display='none';
-    document.getElementById('dashboard').style.display='block';
+    document.getElementById('upload-zone').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
     render();
-
-    // salva agregados no Sheets (apenas se não for duplicata)
     await saveAggregates(file.name);
   };
   r.readAsArrayBuffer(file);
 }
 
-// ── AGREGAR E SALVAR ─────────────────────────────────────
+// ── SALVAR AGREGADOS ─────────────────────────────────────
 async function saveAggregates(filename){
-  try{
-    const delays=allData.map(r=>r.delay).filter(d=>d>0).sort((a,b)=>a-b);
-    const avg=d=>d.length?d.reduce((a,b)=>a+b,0)/d.length:0;
-    const p95=d=>d.length?d[Math.floor(d.length*.95)]:0;
-    const med=d=>d.length?d[Math.floor(d.length/2)]:0;
+  try {
+    const delays = allData.map(r=>r.delay).filter(d=>d>0).sort((a,b)=>a-b);
+    const avg = d => d.length ? d.reduce((a,b)=>a+b,0)/d.length : 0;
+    const p95 = d => d.length ? d[Math.floor(d.length*.95)] : 0;
+    const med = d => d.length ? d[Math.floor(d.length/2)] : 0;
 
     function groupAgg(key){
       const m={};
-      allData.forEach(r=>{const k=r[key]||'N/A';if(!m[k])m[k]=[];m[k].push(r.delay)});
+      allData.filter(r=>isValid(r[key])).forEach(r=>{
+        const k=r[key];
+        if(!m[k]) m[k]=[];
+        m[k].push(r.delay);
+      });
       return Object.entries(m).map(([k,d])=>({k,avg:parseFloat(avg(d).toFixed(2)),p95:parseFloat(p95(d).toFixed(2)),cnt:d.length})).sort((a,b)=>b.avg-a.avg);
     }
 
-    // top combos
-    const comboMap={};
-    allData.forEach(r=>{
-      const k=`${r.event}|${r.android}|${r.appver}|${r.nettype}|${r.netqual}`;
-      if(!comboMap[k])comboMap[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,d:[]};
-      comboMap[k].d.push(r.delay);
-    });
-    const top_combos=Object.values(comboMap).map(x=>({event:x.event,android:x.android,appver:x.appver,nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),cnt:x.d.length})).sort((a,b)=>b.avg-a.avg).slice(0,20);
-
-    // rede combinada
     const redeMap={};
     allData.forEach(r=>{
       const k=r.nettype+'|'+r.netqual;
-      if(!redeMap[k])redeMap[k]={nettype:r.nettype,netqual:r.netqual,d:[]};
+      if(!redeMap[k]) redeMap[k]={nettype:r.nettype,netqual:r.netqual,d:[]};
       redeMap[k].d.push(r.delay);
     });
-    const por_rede=Object.values(redeMap).map(x=>({nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),p95:parseFloat(p95(x.d).toFixed(2)),cnt:x.d.length}));
+    const por_rede = Object.values(redeMap).map(x=>({nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),p95:parseFloat(p95(x.d).toFixed(2)),cnt:x.d.length}));
 
-    const payload={
+    const comboMap={};
+    allData.forEach(r=>{
+      const k=`${r.event}|${r.android}|${r.appver}|${r.nettype}|${r.netqual}`;
+      if(!comboMap[k]) comboMap[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,d:[]};
+      comboMap[k].d.push(r.delay);
+    });
+    const top_combos = Object.values(comboMap).map(x=>({event:x.event,android:x.android,appver:x.appver,nettype:x.nettype,netqual:x.netqual,avg:parseFloat(avg(x.d).toFixed(2)),cnt:x.d.length})).sort((a,b)=>b.avg-a.avg).slice(0,20);
+
+    const payload = {
       upload_id: filename+'__'+new Date().toLocaleDateString('pt-BR'),
       filename,
       date_upload: new Date().toLocaleDateString('pt-BR'),
-      resumo:{total:allData.length,avg:parseFloat(avg(delays).toFixed(2)),p95:parseFloat(p95(delays).toFixed(2)),median:parseFloat(med(delays).toFixed(2)),pct_criticos:parseFloat((delays.filter(d=>d>120).length/delays.length*100).toFixed(2))},
-      por_evento: groupAgg('event'),
+      resumo: {total:allData.length, avg:parseFloat(avg(delays).toFixed(2)), p95:parseFloat(p95(delays).toFixed(2)), median:parseFloat(med(delays).toFixed(2)), pct_criticos:parseFloat((delays.filter(d=>d>120).length/delays.length*100).toFixed(2))},
+      por_evento:  groupAgg('event'),
       por_android: groupAgg('android'),
-      por_appver: groupAgg('appver'),
+      por_appver:  groupAgg('appver'),
       por_rede,
       top_combos
     };
 
-    const resp=await fetch(API,{method:'POST',body:JSON.stringify(payload)});
-    const result=await resp.json();
+    const resp = await fetch(API,{method:'POST',body:JSON.stringify(payload)});
+    const result = await resp.json();
     if(result.skipped) toast(`⚠️ "${filename}" já estava no histórico — ignorado`,'warn');
     else if(result.ok) toast('✓ Agregados salvos no histórico');
-    else toast('Erro ao salvar histórico: '+(result.error||''),'err');
-  }catch(e){
+    else toast('Erro ao salvar: '+(result.error||''),'err');
+  } catch(e) {
     toast('Erro ao salvar histórico: '+e.message,'err');
   }
 }
 
 // ── HISTÓRICO ────────────────────────────────────────────
-async function loadAndRenderHistory(){
-  document.getElementById('hist-loading').textContent='carregando...';
-  document.getElementById('hist-list').innerHTML='<p style="color:#475569;font-size:13px;padding:12px">Buscando...</p>';
-  try{
-    const json=await jsonpFetch(API);
-    if(!json.ok)throw new Error(json.error);
-    const db=json.data||{};
-    const resumo=(db.resumo||[]).sort((a,b)=>String(a.upload_id).localeCompare(String(b.upload_id)));
-    document.getElementById('hist-loading').textContent=`(${resumo.length} uploads)`;
+async function renderHistory(){
+  document.getElementById('hist-loading').textContent = 'carregando...';
+  document.getElementById('hist-list').innerHTML = '<p style="color:#475569;font-size:13px;padding:12px">Buscando...</p>';
+  try {
+    let db = cachedDB;
+    if(!db){
+      const json = await jsonpFetch(API);
+      if(!json.ok) throw new Error(json.error);
+      db = json.data || {};
+    }
+    cachedDB = null; // limpa cache após usar
+    const resumo = (db.resumo||[]).sort((a,b)=>String(a.upload_id).localeCompare(String(b.upload_id)));
+    document.getElementById('hist-loading').textContent = `(${resumo.length} uploads)`;
 
-    // lista
-    document.getElementById('hist-list').innerHTML=resumo.slice().reverse().map(h=>`
+    document.getElementById('hist-list').innerHTML = resumo.slice().reverse().map(h=>`
       <div class="hist-item">
         <div style="flex:1;min-width:0">
           <div style="color:#cbd5e1;font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.filename}</div>
@@ -308,11 +349,10 @@ async function loadAndRenderHistory(){
         </div>
       </div>`).join('');
 
-    const labels=resumo.map(r=>r.filename.replace(/\.xlsx?$/i,''));
+    const labels = resumo.map(r=>r.filename.replace(/\.xlsx?$/i,''));
 
-    // gráfico principal
-    if(charts['c-hist'])charts['c-hist'].destroy();
-    charts['c-hist']=new Chart(document.getElementById('c-hist').getContext('2d'),{
+    if(charts['c-hist']) charts['c-hist'].destroy();
+    charts['c-hist'] = new Chart(document.getElementById('c-hist').getContext('2d'),{
       type:'line',
       data:{labels,datasets:[
         {label:'Delay Médio',data:resumo.map(r=>Number(r.avg_delay)),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',borderWidth:2,pointRadius:4,fill:true,tension:0.3},
@@ -321,54 +361,49 @@ async function loadAndRenderHistory(){
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8'}}},scales:{x:{ticks:{color:'#64748b',font:{size:10},maxRotation:40},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}
     });
 
-    // volume
-    if(charts['c-hist-vol'])charts['c-hist-vol'].destroy();
-    charts['c-hist-vol']=new Chart(document.getElementById('c-hist-vol').getContext('2d'),{
+    if(charts['c-hist-vol']) charts['c-hist-vol'].destroy();
+    charts['c-hist-vol'] = new Chart(document.getElementById('c-hist-vol').getContext('2d'),{
       type:'bar',
       data:{labels,datasets:[{data:resumo.map(r=>Number(r.total_eventos)),backgroundColor:C,borderRadius:6,borderSkipped:false}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${i.raw.toLocaleString('pt-BR')} eventos`}}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>v.toLocaleString('pt-BR')},grid:{color:'#1e2235'}}}}
     });
 
-    // delay por evento ao longo do tempo
-    const evRows=db.por_evento||[];
-    const eventos=[...new Set(evRows.map(r=>r.event))].slice(0,8);
-    const lineC=['#6366f1','#10b981','#f59e0b','#f87171','#a78bfa','#60a5fa','#34d399','#c4b5fd'];
-    if(charts['c-hist-event'])charts['c-hist-event'].destroy();
-    charts['c-hist-event']=new Chart(document.getElementById('c-hist-event').getContext('2d'),{
+    const evRows = db.por_evento || [];
+    const eventos = [...new Set(evRows.map(r=>r.event))].slice(0,8);
+    const lineC = ['#6366f1','#10b981','#f59e0b','#f87171','#a78bfa','#60a5fa','#34d399','#c4b5fd'];
+    if(charts['c-hist-event']) charts['c-hist-event'].destroy();
+    charts['c-hist-event'] = new Chart(document.getElementById('c-hist-event').getContext('2d'),{
       type:'line',
       data:{labels,datasets:eventos.map((ev,i)=>({
         label:ev,
-        data:resumo.map(r=>{const found=evRows.find(x=>x.upload_id===r.upload_id&&x.event===ev);return found?Number(found.avg_delay):null}),
+        data:resumo.map(r=>{const f=evRows.find(x=>x.upload_id===r.upload_id&&x.event===ev);return f?Number(f.avg_delay):null}),
         borderColor:lineC[i%lineC.length],borderWidth:2,pointRadius:3,fill:false,tension:0.3,spanGaps:true
       }))},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}
     });
 
-  }catch(e){
-    document.getElementById('hist-list').innerHTML=`<p style="color:#ef4444;font-size:13px;padding:12px">Erro: ${e.message}</p>`;
+  } catch(e) {
+    document.getElementById('hist-list').innerHTML = `<p style="color:#ef4444;font-size:13px;padding:12px">Erro: ${e.message}</p>`;
   }
 }
 
-// ── RENDER (igual v1) ────────────────────────────────────
+// ── FILTROS ──────────────────────────────────────────────
 function populateFilters(){
   const cfg={event:'f-event',android:'f-android',appver:'f-appver',nettype:'f-nettype',netqual:'f-netqual'};
   const lbl={event:'Todos os Eventos',android:'Todos os Android',appver:'Todas as Versões do App',nettype:'Todos os Tipos de Rede',netqual:'Todas as Qualidades de Rede'};
   for(const[k,id] of Object.entries(cfg)){
     const s=document.getElementById(id);
-    const v=[...new Set(allData.map(r=>r[k]).filter(Boolean))].sort();
+    const v=[...new Set(allData.filter(r=>isValid(r[k])).map(r=>r[k]))].sort();
     s.innerHTML=`<option value="">${lbl[k]}</option>`+v.map(x=>`<option value="${x}">${x}</option>`).join('');
   }
 }
 
 function filtered(){
-  const fe=document.getElementById('f-event').value,fa=document.getElementById('f-android').value,
-    fav=document.getElementById('f-appver').value,fnt=document.getElementById('f-nettype').value,
+  const fe=document.getElementById('f-event').value, fa=document.getElementById('f-android').value,
+    fav=document.getElementById('f-appver').value, fnt=document.getElementById('f-nettype').value,
     fnq=document.getElementById('f-netqual').value;
   return allData.filter(r=>(!fe||r.event===fe)&&(!fa||r.android===fa)&&(!fav||r.appver===fav)&&(!fnt||r.nettype===fnt)&&(!fnq||r.netqual===fnq));
 }
-
-const DISCARD=['n/a','unknown','undefined','null',''];
-function isValid(v){return!DISCARD.includes(String(v).toLowerCase().trim())}
 
 function groupAvg(data,key){
   const m={};
@@ -377,28 +412,29 @@ function groupAvg(data,key){
 }
 
 function fmtDelay(s){
-  if(!s||isNaN(s))return'—';
-  if(s<60)return s.toFixed(1)+'s';
+  if(!s||isNaN(s)) return'—';
+  if(s<60) return s.toFixed(1)+'s';
   return Math.floor(s/60)+'m'+Math.round(s%60)+'s';
 }
 
 function badgeLevel(a){
-  if(a>120)return'<span class="badge high">Alto</span>';
-  if(a>30)return'<span class="badge med">Médio</span>';
+  if(a>120) return'<span class="badge high">Alto</span>';
+  if(a>30)  return'<span class="badge med">Médio</span>';
   return'<span class="badge low">Baixo</span>';
 }
 
 function barChart(id,labels,values){
-  if(charts[id])charts[id].destroy();
+  if(charts[id]) charts[id].destroy();
   const ctx=document.getElementById(id).getContext('2d');
   charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:C,borderRadius:6,borderSkipped:false}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>fmtDelay(i.raw)}}},
       scales:{x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'#1e2235'}},y:{ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}}}});
 }
 
+// ── RENDER ───────────────────────────────────────────────
 function render(){
   const data=filtered();
-  if(!data.length)return;
+  if(!data.length) return;
   const delays=data.map(r=>r.delay).filter(d=>d>0);
   const avg=delays.reduce((a,b)=>a+b,0)/delays.length;
   const med=[...delays].sort((a,b)=>a-b)[Math.floor(delays.length/2)];
@@ -417,8 +453,7 @@ function render(){
     barChart('c-'+k,g.map(x=>x.k),g.map(x=>x.avg));
   });
 
-  // scatter bateria
-  if(charts['c-battery'])charts['c-battery'].destroy();
+  if(charts['c-battery']) charts['c-battery'].destroy();
   const pts=data.map(r=>({x:r.battery,y:r.delay}));
   charts['c-battery']=new Chart(document.getElementById('c-battery').getContext('2d'),{
     type:'scatter',data:{datasets:[{data:pts,backgroundColor:'rgba(99,102,241,0.4)',pointRadius:3}]},
@@ -434,12 +469,11 @@ function render(){
     document.getElementById('corr-battery').textContent=`Pearson r = ${rr.toFixed(3)} · ${interp} ${rr>0?'positiva':'negativa'}`;
   }
 
-  // top combos
   const combos={};
   data.forEach(r=>{
     const k=`${r.event}||${r.android}||${r.appver}||${r.nettype}||${r.netqual}`;
-    if(!combos[k])combos[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,s:0,c:0};
-    combos[k].s+=r.delay;combos[k].c++;
+    if(!combos[k]) combos[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,s:0,c:0};
+    combos[k].s+=r.delay; combos[k].c++;
   });
   const top=Object.values(combos).sort((a,b)=>(b.s/b.c)-(a.s/a.c)).slice(0,15);
   const maxA=top[0]?top[0].s/top[0].c:1;
@@ -449,14 +483,14 @@ function render(){
   }).join('');
 }
 
-// PARETO
+// ── PARETO ───────────────────────────────────────────────
 function renderPareto(){
   const dim=document.getElementById('pareto-dim').value;
   const metric=document.getElementById('pareto-metric').value;
   const data=filtered();
   let sorted=groupAvg(data,dim);
-  if(metric==='total')sorted.sort((a,b)=>b.total-a.total);
-  else if(metric==='avg')sorted.sort((a,b)=>b.avg-a.avg);
+  if(metric==='total') sorted.sort((a,b)=>b.total-a.total);
+  else if(metric==='avg') sorted.sort((a,b)=>b.avg-a.avg);
   else sorted.sort((a,b)=>b.cnt-a.cnt);
   const vals=sorted.map(g=>metric==='total'?g.total:metric==='avg'?g.avg:g.cnt);
   const tot=vals.reduce((a,b)=>a+b,0);
@@ -464,7 +498,7 @@ function renderPareto(){
   const cumPct=vals.map(v=>{cum+=v;return parseFloat(((cum/tot)*100).toFixed(2))});
   const n80=cumPct.findIndex(v=>v>=80)+1;
   document.getElementById('pareto-info').textContent=`🎯 ${n80} de ${sorted.length} categorias respondem por 80% do ${metric==='count'?'volume':'delay'}`;
-  if(charts['c-pareto'])charts['c-pareto'].destroy();
+  if(charts['c-pareto']) charts['c-pareto'].destroy();
   charts['c-pareto']=new Chart(document.getElementById('c-pareto').getContext('2d'),{
     data:{labels:sorted.map(g=>g.k),datasets:[
       {type:'bar',data:vals,backgroundColor:sorted.map((_,i)=>i<n80?'#6366f1':'#2d3148'),borderRadius:6,borderSkipped:false,yAxisID:'y'},
@@ -476,6 +510,9 @@ function renderPareto(){
         y:{ticks:{color:'#64748b',callback:v=>metric==='count'?v:fmtDelay(v)},grid:{color:'#1e2235'},position:'left'},
         y2:{ticks:{color:'#f59e0b',callback:v=>v+'%'},grid:{display:false},position:'right',min:0,max:100}}}});
 }
+
+// init
+init();
 </script>
 </body>
 </html>
