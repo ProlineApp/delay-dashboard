@@ -135,7 +135,6 @@ tr:hover td{background:#1e2235}
         </select>
         <label>Métrica:</label>
         <select id="pareto-metric" onchange="renderPareto()">
-          <option value="total">Delay Total Acumulado</option>
           <option value="avg">Delay Médio</option>
           <option value="count">Volume de Eventos</option>
         </select>
@@ -509,10 +508,9 @@ function renderPareto(){
   const metric=document.getElementById('pareto-metric').value;
   const data=filtered();
   let sorted=groupAvg(data,dim);
-  if(metric==='total') sorted.sort((a,b)=>b.total-a.total);
-  else if(metric==='avg') sorted.sort((a,b)=>b.avg-a.avg);
+  if(metric==='avg') sorted.sort((a,b)=>b.avg-a.avg);
   else sorted.sort((a,b)=>b.cnt-a.cnt);
-  const vals=sorted.map(g=>metric==='total'?g.total:metric==='avg'?g.avg:g.cnt);
+  const vals=sorted.map(g=>metric==='avg'?g.avg:g.cnt);
   const tot=vals.reduce((a,b)=>a+b,0);
   let cum=0;
   const cumPct=vals.map(v=>{cum+=v;return parseFloat(((cum/tot)*100).toFixed(2))});
