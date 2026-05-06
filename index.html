@@ -496,7 +496,26 @@ function renderUsuarios(){
     '<tbody>'+rows.map(r=>`<tr><td>${r.name}</td><td style="color:#475569">${r.user_id}</td><td style="color:#60a5fa">${r.android||'—'}</td><td>${r.total}</td><td>${r.com}</td><td>${r.sem}</td><td>${fmtDelay(r.med)}</td><td>${(r.p90/60).toFixed(1)}</td><td>${(r.p95/60).toFixed(1)}</td><td>${(r.p99/3600).toFixed(1)}</td><td>${(r.max/3600).toFixed(1)}</td><td>${pct(r.gt5m,r.com)}</td><td>${pctBar(pct(r.gt1h,r.com),maxP)}</td><td>${pct(r.gt24h,r.com)}</td></tr>`).join('')+'</tbody>';
 }
 
-// ── DISPERSÃO ────────────────────────────────────────────
+// ── INIT — busca histórico ao abrir ─────────────────────
+async function init(){
+  try{
+    const resp=await fetch(API+'?t='+Date.now());
+    const json=await resp.json();
+    if(!json.ok) throw new Error(json.error);
+    const historico=json.data?.historico||[];
+    if(historico.length){
+      const last=historico[historico.length-1];
+      document.getElementById('file-info').textContent=`Último upload: ${last.filename}`;
+      document.getElementById('upload-zone').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      switchPrimary('hist');
+    }
+  }catch(e){
+    // sem histórico ou erro — mantém tela de upload
+  }
+}
+
+init();
 function renderScatter(){
   if(charts['c-scatter'])charts['c-scatter'].destroy();
   const pts=allData.filter(r=>r.delay>0).map((r,i)=>({x:i+1,y:r.delay}));
