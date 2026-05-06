@@ -43,7 +43,7 @@ tr:hover td{background:#1e2235}
 .badge.high{background:#3f1d1d;color:#ef4444}
 .badge.med{background:#3f3010;color:#f59e0b}
 .badge.low{background:#0f2d20;color:#10b981}
-.pct-bar{background:#2d3148;border-radius:3px;height:5px;overflow:hidden;min-width:60px;display:inline-block;vertical-align:middle;margin-left:6px}
+.insight-box{background:#13152a;border-left:3px solid #3d4270;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:4px;font-size:12px;color:#94a3b8;line-height:1.7}
 .pct-bar div{height:100%;border-radius:3px}
 .toast{position:fixed;bottom:22px;right:22px;padding:11px 18px;border-radius:10px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;border:1px solid}
 .toast.show{opacity:1}
@@ -86,10 +86,13 @@ tr:hover td{background:#1e2235}
     <div class="kpi-row" id="kpis-geral"></div>
     <div class="section-title">Faixas de Delay — SLA</div>
     <div class="kpi-row" id="kpis-sla"></div>
+    <div id="insight-sla" class="insight-box"></div>
     <div class="section-title">Percentis de Delay</div>
     <div class="kpi-row" id="kpis-pct"></div>
+    <div id="insight-pct" class="insight-box"></div>
     <div class="section-title">Qualidade dos Dados</div>
     <div class="kpi-row" id="kpis-qual"></div>
+    <div id="insight-qual" class="insight-box"></div>
   </div>
 
   <!-- DISTRIBUIÇÃO -->
@@ -304,6 +307,30 @@ function renderGeral(){
     <div class="kpi warn"><div class="label">Chaves Duplicadas</div><div class="value">${dups.toLocaleString('pt-BR')}</div><div class="sub">user+evento+captured_at</div></div>
     <div class="kpi warn"><div class="label">Linhas em Duplicatas</div><div class="value">${dupLines.toLocaleString('pt-BR')}</div><div class="sub">${pct(dupLines,total)} do total</div></div>
     <div class="kpi"><div class="label">Registros Únicos</div><div class="value">${(total-dupLines+dups).toLocaleString('pt-BR')}</div></div>`;
+
+  const pctLte1m = lte1m/n*100;
+  const pctGt1h  = gt1h/n*100;
+  const pctGt24h = gt24h/n*100;
+  const pctNoDelay = noDelay/total*100;
+  const pctDup = dupLines/total*100;
+  const unknownCount = allData.filter(r=>r.nettype==='unknown').length;
+  const offlineRows = allData.filter(r=>r.delay>0&&r.nettype==='offline');
+  const offlinePct1h = offlineRows.length ? offlineRows.filter(r=>r.delay>3600).length/offlineRows.length*100 : 0;
+  const poorRows = allData.filter(r=>r.delay>0&&r.netqual==='poor');
+  const poorPct1h = poorRows.length ? poorRows.filter(r=>r.delay>3600).length/poorRows.length*100 : 0;
+
+  const lte5m = delays.filter(d=>d<=300).length;
+  document.getElementById('insight-sla').textContent =
+    `${pct(lte5m,n)} dos registros sincronizaram em até 5 minutos e ${pct(gt1h,n)} tiveram delay acima de 1 hora. Apenas ${pct(gt24h,n)} acima de 24 horas — casos críticos que geralmente indicam promotores que ficaram offline por longos períodos e sincronizaram tudo de uma vez ao reconectar.`;
+
+  document.getElementById('insight-pct').textContent =
+    `A mediana de ${fmtDelay(med)} indica que metade dos eventos chega ao servidor nesse tempo — esse é o valor mais representativo da experiência típica do promotor. `+
+    `O P95 de ${fmtDelay(p95)} significa que apenas 5% dos eventos demoram mais que isso. `+
+    `O valor máximo de ${fmtDelay(max)} representa o pior caso do período e costuma ser um promotor que ficou offline por muito tempo.`;
+
+  document.getElementById('insight-qual').textContent =
+    `${noDelay.toLocaleString('pt-BR')} registros (${pctNoDelay.toFixed(1)}%) têm processed_at igual ou anterior a captured_at, resultando em delay zero ou negativo — pode indicar diferença de relógio entre dispositivo e servidor. `+
+    `${dupLines.toLocaleString('pt-BR')} linhas (${pctDup.toFixed(2)}%) caíram em chaves repetidas de usuário+evento+captured_at, o que pode indicar reenvio sem idempotência no app.`;
 }
 
 // ── DISTRIBUIÇÃO ─────────────────────────────────────────
