@@ -109,6 +109,7 @@ tr:hover td{background:#1e2235}
       <div class="card"><h3>📡 Por Tipo de Rede</h3><div class="chart-wrap"><canvas id="c-nettype"></canvas></div></div>
       <div class="card"><h3>📶 Por Qualidade de Rede</h3><div class="chart-wrap"><canvas id="c-netqual"></canvas></div></div>
       <div class="card"><h3>🔋 Delay vs Bateria (scatter)</h3><div class="chart-wrap"><canvas id="c-battery"></canvas></div><p class="scatter-info" id="corr-battery"></p></div>
+      <div class="card" style="grid-column:1/-1"><h3>🔵 Dispersão de Delay por Evento (sequencial)</h3><p style="font-size:11px;color:#475569;margin-bottom:10px">Cada ponto é um evento. Eixo X = ordem sequencial · Eixo Y = delay em segundos</p><div style="position:relative;height:300px"><canvas id="c-scatter-seq"></canvas></div></div>
     </div>
     <div class="section-title">Top Combinações com Maior Delay</div>
     <div class="card">
@@ -462,7 +463,27 @@ function render(){
     document.getElementById('corr-battery').textContent=`Pearson r = ${rr.toFixed(3)} · ${interp} ${rr>0?'positiva':'negativa'}`;
   }
 
-  const combos={};
+  // scatter sequencial
+  if(charts['c-scatter-seq']) charts['c-scatter-seq'].destroy();
+  const seqPts = data.map((r,i)=>({x:i+1, y:r.delay}));
+  charts['c-scatter-seq'] = new Chart(document.getElementById('c-scatter-seq').getContext('2d'),{
+    type:'scatter',
+    data:{datasets:[{
+      label:'Delay',
+      data:seqPts,
+      backgroundColor: seqPts.map(p=>p.y>3600?'rgba(239,68,68,0.5)':p.y>120?'rgba(245,158,11,0.4)':'rgba(99,102,241,0.3)'),
+      pointRadius: 2,
+      pointHoverRadius: 5
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:i=>`Evento #${i.raw.x} · Delay: ${fmtDelay(i.raw.y)}`
+      }}},
+      scales:{
+        x:{title:{display:true,text:'Nº do Evento',color:'#64748b'},ticks:{color:'#64748b'},grid:{color:'#1e2235'}},
+        y:{title:{display:true,text:'Delay (s)',color:'#64748b'},ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}
+      }}
+  });
   data.forEach(r=>{
     const k=`${r.event}||${r.android}||${r.appver}||${r.nettype}||${r.netqual}`;
     if(!combos[k]) combos[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,s:0,c:0};
