@@ -65,6 +65,7 @@ tr:hover td{background:#1e2235}
 .toast.ok{border-color:#10b981;color:#10b981}
 .toast.warn{border-color:#f59e0b;color:#f59e0b}
 .toast.err{border-color:#ef4444;color:#ef4444}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -91,6 +92,7 @@ tr:hover td{background:#1e2235}
     <div class="tab" id="tab-btn-historico" onclick="switchTab('historico')">📈 Histórico</div>
   </div>
 
+  <!-- ANÁLISE -->
   <div class="tab-content" id="tab-analise">
     <div class="filters">
       <label>Filtrar:</label>
@@ -108,8 +110,12 @@ tr:hover td{background:#1e2235}
       <div class="card"><h3>📦 Por Versão do App</h3><div class="chart-wrap"><canvas id="c-appver"></canvas></div></div>
       <div class="card"><h3>📡 Por Tipo de Rede</h3><div class="chart-wrap"><canvas id="c-nettype"></canvas></div></div>
       <div class="card"><h3>📶 Por Qualidade de Rede</h3><div class="chart-wrap"><canvas id="c-netqual"></canvas></div></div>
-      <div class="card"><h3>🔋 Delay vs Bateria (scatter)</h3><div class="chart-wrap"><canvas id="c-battery"></canvas></div><p class="scatter-info" id="corr-battery"></p></div>
-      <div class="card" style="grid-column:1/-1"><h3>🔵 Dispersão de Delay por Evento (sequencial)</h3><p style="font-size:11px;color:#475569;margin-bottom:10px">Cada ponto é um evento. Eixo X = ordem sequencial · Eixo Y = delay em segundos</p><div style="position:relative;height:300px"><canvas id="c-scatter-seq"></canvas></div></div>
+      <div class="card"><h3>🔋 Delay vs Bateria</h3><div class="chart-wrap"><canvas id="c-battery"></canvas></div><p class="scatter-info" id="corr-battery"></p></div>
+    </div>
+    <div class="section-title">Dispersão de Delay por Evento</div>
+    <div class="card">
+      <p style="font-size:11px;color:#475569;margin-bottom:12px">Cada ponto é um evento. Azul = normal · Amarelo = &gt;2min · Vermelho = &gt;1h</p>
+      <div style="position:relative;height:320px"><canvas id="c-scatter-seq"></canvas></div>
     </div>
     <div class="section-title">Top Combinações com Maior Delay</div>
     <div class="card">
@@ -120,6 +126,7 @@ tr:hover td{background:#1e2235}
     </div>
   </div>
 
+  <!-- PARETO -->
   <div class="tab-content" id="tab-pareto">
     <div class="card">
       <div class="pareto-controls">
@@ -142,6 +149,7 @@ tr:hover td{background:#1e2235}
     </div>
   </div>
 
+  <!-- HISTÓRICO -->
   <div class="tab-content" id="tab-historico">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
       <div class="card">
@@ -171,7 +179,7 @@ function isValid(v){return !DISCARD.includes(String(v).toLowerCase().trim())}
 
 function toast(msg,type='ok'){
   const t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast show '+type;
+  t.textContent=msg; t.className='toast show '+type;
   setTimeout(()=>t.className='toast',4000);
 }
 
@@ -206,7 +214,6 @@ async function init(){
       document.getElementById('file-info').textContent=`✓ ${last.filename} · ${Number(last.total_eventos).toLocaleString('pt-BR')} registros`;
       document.getElementById('upload-zone').style.display='none';
       document.getElementById('dashboard').style.display='block';
-      // abre direto na aba histórico
       switchTab('historico');
     } else {
       showUploadZone();
@@ -307,8 +314,8 @@ async function saveAggregates(filename){
       toast(`⚠️ "${filename}" já estava no histórico — ignorado`,'warn');
     } else if(result.ok){
       toast('✓ Agregados salvos no histórico');
-      cachedDB=null; // força reload
-      renderHistory(); // atualiza histórico em tempo real
+      cachedDB=null;
+      renderHistory();
     } else {
       toast('Erro ao salvar: '+(result.error||''),'err');
     }
@@ -447,6 +454,7 @@ function render(){
     barChart('c-'+k,g.map(x=>x.k),g.map(x=>x.avg));
   });
 
+  // scatter bateria
   if(charts['c-battery']) charts['c-battery'].destroy();
   const pts=data.map(r=>({x:r.battery,y:r.delay}));
   charts['c-battery']=new Chart(document.getElementById('c-battery').getContext('2d'),{
@@ -465,25 +473,26 @@ function render(){
 
   // scatter sequencial
   if(charts['c-scatter-seq']) charts['c-scatter-seq'].destroy();
-  const seqPts = data.map((r,i)=>({x:i+1, y:r.delay}));
-  charts['c-scatter-seq'] = new Chart(document.getElementById('c-scatter-seq').getContext('2d'),{
+  const seqPts=data.map((r,i)=>({x:i+1,y:r.delay}));
+  charts['c-scatter-seq']=new Chart(document.getElementById('c-scatter-seq').getContext('2d'),{
     type:'scatter',
     data:{datasets:[{
       label:'Delay',
       data:seqPts,
-      backgroundColor: seqPts.map(p=>p.y>3600?'rgba(239,68,68,0.5)':p.y>120?'rgba(245,158,11,0.4)':'rgba(99,102,241,0.3)'),
-      pointRadius: 2,
-      pointHoverRadius: 5
+      backgroundColor:seqPts.map(p=>p.y>3600?'rgba(239,68,68,0.5)':p.y>120?'rgba(245,158,11,0.4)':'rgba(99,102,241,0.3)'),
+      pointRadius:2,
+      pointHoverRadius:5
     }]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{
-        label:i=>`Evento #${i.raw.x} · Delay: ${fmtDelay(i.raw.y)}`
-      }}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`Evento #${i.raw.x} · Delay: ${fmtDelay(i.raw.y)}`}}},
       scales:{
         x:{title:{display:true,text:'Nº do Evento',color:'#64748b'},ticks:{color:'#64748b'},grid:{color:'#1e2235'}},
         y:{title:{display:true,text:'Delay (s)',color:'#64748b'},ticks:{color:'#64748b',callback:v=>fmtDelay(v)},grid:{color:'#1e2235'}}
       }}
   });
+
+  // top combos
+  const combos={};
   data.forEach(r=>{
     const k=`${r.event}||${r.android}||${r.appver}||${r.nettype}||${r.netqual}`;
     if(!combos[k]) combos[k]={event:r.event,android:r.android,appver:r.appver,nettype:r.nettype,netqual:r.netqual,s:0,c:0};
