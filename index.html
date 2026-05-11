@@ -631,10 +631,12 @@ async function loadHistory(){
     lineChart('c-h-offline',labels,[ds('Offline >1h',rows.map(r=>Number(r.pct_offline_gt1h)),'rgb(239,68,68)')],v=>v+'%');
     lineChart('c-h-unknown',labels,[ds('Unknown',rows.map(r=>Number(r.pct_unknown)),'rgb(100,116,139)')],v=>v+'%');
 
-    document.getElementById('t-hist').innerHTML=tableHeaders(['Arquivo','Data Upload','Total','%≤1min','%>1h','%>24h','Mediana','P90','Offline>1h','%Unknown','%Sem Delay'])+
+    document.getElementById('t-hist').innerHTML=tableHeaders(['Arquivo','Data Upload','Total','%≤1min','%≤5min','%>1h','%>24h','Mediana','P90','Offline>1h','%Unknown','%Sem Delay'])+
       '<tbody>'+rows.slice().reverse().map(r=>`<tr>
         <td>${r.filename}</td><td>${r.date_upload}</td><td>${Number(r.total).toLocaleString('pt-BR')}</td>
-        <td style="color:#10b981">${r.pct_lte1min}%</td><td style="color:#ef4444">${r.pct_gt1h}%</td><td style="color:#ef4444">${r.pct_gt24h}%</td>
+        <td style="color:#10b981">${r.pct_lte1min}%</td>
+        <td style="color:#10b981">${r.pct_lte5min||'—'}${r.pct_lte5min?'%':''}</td>
+        <td style="color:#ef4444">${r.pct_gt1h}%</td><td style="color:#ef4444">${r.pct_gt24h}%</td>
         <td>${fmtDelay(Number(r.mediana))}</td><td>${fmtDelay(Number(r.p90))}</td>
         <td>${r.pct_offline_gt1h}%</td><td>${r.pct_unknown}%</td><td>${r.pct_sem_delay}%</td>
       </tr>`).join('')+'</tbody>';
