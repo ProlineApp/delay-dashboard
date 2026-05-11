@@ -573,6 +573,7 @@ async function saveHistory(filename){
     const n=delays.length;
     const total=allData.length;
     const lte1m=delays.filter(d=>d<=60).length;
+    const lte5m=delays.filter(d=>d<=300).length;
     const gt1h=delays.filter(d=>d>3600).length;
     const gt24h=delays.filter(d=>d>86400).length;
     const noDelay=total-n;
