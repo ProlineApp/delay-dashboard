@@ -163,7 +163,7 @@ tr:hover td{background:#1e2235}
     <div id="hist-loading" class="spinner"></div>
     <div id="hist-content" style="display:none">
       <div class="charts-grid" style="margin-bottom:16px">
-        <div class="card"><h3>% Eventos ≤ 1 min — evolução</h3><div class="chart-wrap-lg"><canvas id="c-h-sla"></canvas></div></div>
+        <div class="card"><h3>% Eventos ≤ 5 min — evolução</h3><div class="chart-wrap-lg"><canvas id="c-h-sla"></canvas></div></div>
         <div class="card"><h3>% Eventos &gt; 1h — evolução</h3><div class="chart-wrap-lg"><canvas id="c-h-crit"></canvas></div></div>
         <div class="card"><h3>Mediana de Delay — evolução</h3><div class="chart-wrap-lg"><canvas id="c-h-med"></canvas></div></div>
         <div class="card"><h3>P90 de Delay — evolução</h3><div class="chart-wrap-lg"><canvas id="c-h-p90"></canvas></div></div>
@@ -178,7 +178,7 @@ tr:hover td{background:#1e2235}
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbymlYIbde3SzgR2uCTsBK6tUL1L9y7_vzMM2_lhCfd7KC8PH-pPjrNGTYVx_tSXhEuB/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxPc13hKjbGkmuGPGFeCyqL54q2pBAXsWoNRy3UbmyTxUBKdcS0churvSNZ3j0Nck6Z/exec';
 const DISCARD=['n/a','unknown','undefined','null',''];
 function isValid(v){return v!==null&&v!==undefined&&!DISCARD.includes(String(v).toLowerCase().trim())}
 let allData=[], charts={};
@@ -586,6 +586,7 @@ async function saveHistory(filename){
       date_upload: new Date().toLocaleDateString('pt-BR'),
       total,
       pct_lte1min:  parseFloat(pctNum(lte1m,n).toFixed(2)),
+      pct_lte5min:  parseFloat(pctNum(lte5m,n).toFixed(2)),
       pct_gt1h:     parseFloat(pctNum(gt1h,n).toFixed(2)),
       pct_gt24h:    parseFloat(pctNum(gt24h,n).toFixed(2)),
       mediana:      parseFloat(median(delays).toFixed(1)),
@@ -622,7 +623,7 @@ async function loadHistory(){
     const labels=rows.map(r=>r.filename.replace(/\.xlsx?$/i,''));
     const ds=(label,data,color)=>({label,data,borderColor:color,backgroundColor:color.replace(')',',0.1)').replace('rgb','rgba'),borderWidth:2,pointRadius:3,fill:true,tension:0.3});
 
-    lineChart('c-h-sla',labels,[ds('% ≤1min',rows.map(r=>Number(r.pct_lte1min)),'rgb(16,185,129)')],v=>v+'%');
+    lineChart('c-h-sla',labels,[ds('% ≤5min',rows.map(r=>Number(r.pct_lte5min)),'rgb(16,185,129)')],v=>v+'%');
     lineChart('c-h-crit',labels,[ds('% >1h',rows.map(r=>Number(r.pct_gt1h)),'rgb(239,68,68)')],v=>v+'%');
     lineChart('c-h-med',labels,[ds('Mediana',rows.map(r=>Number(r.mediana)),'rgb(99,102,241)')],v=>fmtDelay(v));
     lineChart('c-h-p90',labels,[ds('P90',rows.map(r=>Number(r.p90)),'rgb(245,158,11)')],v=>fmtDelay(v));
